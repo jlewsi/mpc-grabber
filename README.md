@@ -3,6 +3,8 @@
 A portable Windows front-end for [yt-dlp](https://github.com/yt-dlp/yt-dlp): paste a link, pick a
 quality (or MP3), download. Dark UI, playlist support, download history, no installer.
 
+**[Download MPCGrabber.exe](https://github.com/jlewsi/mpc-grabber/releases/latest)** - single file, no installer.
+
 ![MPC Grabber](docs/screenshot-download.png)
 
 ---
@@ -27,7 +29,7 @@ your main browser session separate, and you can log out of that session afterwar
 
 ## Install (portable)
 
-1. Download the latest `MPCGrabber.exe` from [Releases](../../releases).
+1. Download the latest `MPCGrabber.exe` from the [latest release](https://github.com/jlewsi/mpc-grabber/releases/latest).
 2. Get [`yt-dlp.exe`](https://github.com/yt-dlp/yt-dlp/releases/latest) and
    [`ffmpeg.exe`](https://www.gyan.dev/ffmpeg/builds/) (ffmpeg is needed for merging and MP3).
 3. Put all three in one folder, add your `cookies.txt` as described above, and run `MPCGrabber.exe`.
