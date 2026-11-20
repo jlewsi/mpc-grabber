@@ -1,0 +1,1173 @@
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.IO;
+using System.Net;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace MpcGrabber
+{
+    internal class EmptyState : DcControl
+    {
+        public EmptyState() { BackColor = T.Bg; }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle r = new Rectangle(0, 0, Width - 1, Height - 1);
+            using (GraphicsPath p = T.Round(r, 14))
+            using (Pen pen = new Pen(T.Border, 1.2f))
+            {
+                pen.DashStyle = DashStyle.Dash;
+                pen.DashPattern = new float[] { 4f, 4f };
+                g.DrawPath(pen, p);
+            }
+
+            int cy = Height / 2;
+            Rectangle icon = new Rectangle(Width / 2 - 26, cy - 76, 52, 52);
+            T.FillRound(g, T.Card2, icon, 14);
+            T.Draw(g, "\uE896", T.GlyphBig, T.Accent, icon, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+
+            T.Draw(g, "Paste a link to get started", T.H3, T.Text,
+                new Rectangle(0, cy - 14, Width, 22), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            T.Draw(g, "Or drop a URL anywhere in this window \u2014 qualities will appear here.",
+                T.Small, T.Faint, new Rectangle(0, cy + 12, Width, 20), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+    }
+
+    internal class InfoCard : DcControl
+    {
+        public MediaInfo Info;
+        public Image Thumb;
+
+        public InfoCard() { BackColor = T.Bg; }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle r = new Rectangle(0, 0, Width, Height);
+            T.FillRound(g, T.Card, r, 12);
+            T.StrokeRound(g, T.BorderSoft, r, 12, 1f);
+
+            if (Info == null)
+            {
+                T.Draw(g, "\uE714", T.GlyphBig, T.Faint, new Rectangle(20, 0, 34, Height),
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+                T.Draw(g, "No link loaded yet", T.BodyB, T.Dim, new Rectangle(58, 12, Width - 80, 22),
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+                T.Draw(g, "Paste a video or playlist URL above, then press Fetch.", T.Small, T.Faint,
+                    new Rectangle(58, 34, Width - 80, 20), TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+                return;
+            }
+
+            int x = 12;
+            Rectangle tr = new Rectangle(x, 10, 128, 72);
+            if (Thumb != null)
+            {
+                using (GraphicsPath p = T.Round(tr, 8))
+                {
+                    g.SetClip(p);
+                    g.DrawImage(Thumb, tr);
+                    g.ResetClip();
+                }
+            }
+            else
+            {
+                T.FillRound(g, T.Card2, tr, 8);
+                T.Draw(g, Info.IsPlaylist ? "\uE8FD" : "\uE714", T.GlyphBig, T.Faint, tr,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            }
+
+            int tx = tr.Right + 16;
+            int tw = Width - tx - 16;
+
+            string title = string.IsNullOrEmpty(Info.Title) ? "(untitled)" : Info.Title;
+            T.Draw(g, title, T.H3, T.Text, new Rectangle(tx, 12, tw, 24),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+            string meta = "";
+            if (!string.IsNullOrEmpty(Info.Uploader)) meta += Info.Uploader;
+            if (Info.IsPlaylist) meta += (meta.Length > 0 ? "  \u00B7  " : "") + Info.Entries.Count + " items";
+            else if (Info.Duration > 0) meta += (meta.Length > 0 ? "  \u00B7  " : "") + T.FormatDuration(Info.Duration);
+            if (Info.ViewCount > 0) meta += (meta.Length > 0 ? "  \u00B7  " : "") + T.FormatBytes(Info.ViewCount) + " views";
+
+            T.Draw(g, meta, T.Small, T.Dim, new Rectangle(tx, 38, tw, 20),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+            T.Draw(g, Info.IsPlaylist ? "Playlist" : "Video", T.Tiny, T.Faint, new Rectangle(tx, 60, tw, 16),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+        }
+    }
+
+    internal class LogoBox : DcControl
+    {
+        public LogoBox() { BackColor = T.Sidebar; }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            Rectangle icon = new Rectangle(18, 20, 38, 38);
+            using (GraphicsPath p = T.Round(icon, 11))
+            using (LinearGradientBrush lb = new LinearGradientBrush(icon, Color.FromArgb(112, 138, 255), Color.FromArgb(96, 64, 220), LinearGradientMode.ForwardDiagonal))
+                g.FillPath(lb, p);
+
+            using (SolidBrush b = new SolidBrush(Color.White))
+            {
+                RectangleF shaft = new RectangleF(icon.X + 16.5f, icon.Y + 9, 5, 12);
+                using (GraphicsPath sp = T.Round(Rectangle.Round(shaft), 2)) g.FillPath(b, sp);
+                g.FillPolygon(b, new PointF[] {
+                    new PointF(icon.X + 12, icon.Y + 20),
+                    new PointF(icon.X + 26, icon.Y + 20),
+                    new PointF(icon.X + 19, icon.Y + 28) });
+                using (GraphicsPath tp = T.Round(new Rectangle(icon.X + 12, icon.Y + 30, 14, 2), 1)) g.FillPath(b, tp);
+            }
+
+            T.Draw(g, "MPC Grabber", T.BodyB, T.Text, new Rectangle(66, 22, 130, 20),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+            T.Draw(g, "yt-dlp front end", T.Tiny, T.Faint, new Rectangle(66, 42, 130, 16),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+        }
+    }
+
+    internal partial class MainForm : Form
+    {
+        private DownloadService _svc = new DownloadService();
+        private MediaInfo _media;
+        private ToolTip _tip = new ToolTip();
+        private bool _fetching;
+
+        private Panel _sidebar, _content, _pageDownload, _pageHistory, _pageSettings;
+        private NavBar _nav;
+        private Pill _cookiePill;
+
+        // download page
+        private RoundedPanel _urlCard;
+        private TextBox _txtUrl;
+        private EmptyState _empty;
+        private const string PlaceholderText = "Paste a YouTube (or any yt-dlp) link";
+        private bool _phActive = true;
+        private readonly string _startupUrl = "";
+        private bool _autoDownload;
+        private FlatButton _btnPaste, _btnFetch, _btnDownload, _btnCancel, _btnFolder, _btnChange;
+        private InfoCard _infoCard;
+        private Label _lblQuality;
+        private FormatGrid _grid;
+        private Label _lblPlaylist, _lblQueue, _lblStatus;
+        private FlatButton _btnAll, _btnNone;
+        private EntryList _entries;
+        private QueueList _queue;
+        private ProgressBarEx _progress;
+        private Panel _footer;
+
+        // history page
+        private HistoryList _historyList;
+        private Label _lblHistEmpty;
+        private FlatButton _btnClearHistory;
+
+        // settings page
+        private FlatButton _btnSettChange, _btnSettOpenFolder, _btnClearHistory2;
+        private Label _lblSettFolder, _lblCookies;
+        private FlatButton _rb320, _rb192, _rb128;
+
+        public MainForm(string[] args)
+        {
+            if (args != null && args.Length > 1 && args[1].StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                _startupUrl = args[1].Trim();
+            if (args != null && args.Length > 2 && string.Equals(args[2], "--download", StringComparison.OrdinalIgnoreCase))
+                _autoDownload = true;
+
+            Text = "MPC Grabber";
+            AutoScaleMode = AutoScaleMode.None;
+            BackColor = T.Bg;
+            ForeColor = T.Text;
+            StartPosition = FormStartPosition.CenterScreen;
+            ClientSize = new Size(1240, 800);
+            MinimumSize = new Size(1060, 700);
+            FormBorderStyle = FormBorderStyle.Sizable;
+            KeyPreview = true;
+            T.EnableDoubleBuffer(this);
+
+            BuildSidebar();
+            BuildContent();
+            BuildDownloadPage();
+            BuildHistoryPage();
+            BuildSettingsPage();
+
+            _svc.Changed += ServiceChanged;
+            _svc.JobCompleted += ServiceJobCompleted;
+
+            Load += MainForm_Load;
+            KeyDown += MainForm_KeyDown;
+            AllowDrop = true;
+            DragEnter += delegate(object s, DragEventArgs e)
+            {
+                if (e.Data.GetDataPresent(DataFormats.Text)) e.Effect = DragDropEffects.Copy;
+            };
+            DragDrop += delegate(object s, DragEventArgs e)
+            {
+                string u = e.Data.GetData(DataFormats.Text) as string;
+                if (string.IsNullOrWhiteSpace(u)) return;
+                _phActive = false;
+                _txtUrl.ForeColor = T.Text;
+                _txtUrl.Text = u.Trim();
+                _txtUrl.SelectionStart = _txtUrl.Text.Length;
+                _nav.SelectedIndex = 0;
+                ShowPage(0);
+                BtnFetch_Click(null, null);
+            };
+            FormClosing += MainForm_FormClosing;
+        }
+
+        // ---------- chrome ----------
+        [DllImport("dwmapi.dll", PreserveSig = true)]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            try
+            {
+                int on = 1;
+                DwmSetWindowAttribute(Handle, 20, ref on, 4);
+                DwmSetWindowAttribute(Handle, 19, ref on, 4);
+                int caption = ColorTranslator.ToWin32(T.Bg);
+                DwmSetWindowAttribute(Handle, 35, ref caption, 4);
+                int text = ColorTranslator.ToWin32(T.Text);
+                DwmSetWindowAttribute(Handle, 36, ref text, 4);
+                int border = ColorTranslator.ToWin32(T.Bg);
+                DwmSetWindowAttribute(Handle, 34, ref border, 4);
+                int round = 2;
+                DwmSetWindowAttribute(Handle, 33, ref round, 4);
+            }
+            catch { }
+        }
+
+        // ---------- layout skeleton ----------
+        private void BuildSidebar()
+        {
+            _sidebar = new Panel();
+            _sidebar.Dock = DockStyle.Left;
+            _sidebar.Width = 212;
+            _sidebar.BackColor = T.Sidebar;
+            Controls.Add(_sidebar);
+
+            LogoBox logo = new LogoBox();
+            logo.Bounds = new Rectangle(0, 0, 212, 78);
+            _sidebar.Controls.Add(logo);
+
+            _nav = new NavBar();
+            _nav.Bounds = new Rectangle(0, 92, 212, 150);
+            _nav.Items.Add(new NavItem("\uE896", "Download"));
+            _nav.Items.Add(new NavItem("\uE81C", "History"));
+            _nav.Items.Add(new NavItem("\uE713", "Settings"));
+            _nav.SelectionChanged += delegate { ShowPage(_nav.SelectedIndex); };
+            _sidebar.Controls.Add(_nav);
+
+            _cookiePill = new Pill();
+            _cookiePill.Bounds = new Rectangle(14, 700, 184, 24);
+            _cookiePill.BackColor = T.Sidebar;
+            _cookiePill.BgColor = T.Card2;
+            _sidebar.Controls.Add(_cookiePill);
+
+            Label ver = new Label();
+            ver.Text = "v1.0  \u00B7  portable";
+            ver.Font = T.Tiny;
+            ver.ForeColor = T.Faint;
+            ver.BackColor = T.Sidebar;
+            ver.AutoSize = false;
+            ver.Bounds = new Rectangle(18, 0, 180, 16);
+            _sidebar.Controls.Add(ver);
+
+            _sidebar.Resize += delegate
+            {
+                _cookiePill.Top = _sidebar.Height - 64;
+                ver.Top = _sidebar.Height - 34;
+            };
+
+            Panel edge = new Panel();
+            edge.Dock = DockStyle.Right;
+            edge.Width = 1;
+            edge.BackColor = Color.FromArgb(22, 26, 34);
+            _sidebar.Controls.Add(edge);
+        }
+
+        private void BuildContent()
+        {
+            _content = new Panel();
+            _content.Dock = DockStyle.Fill;
+            _content.BackColor = T.Bg;
+            _content.Padding = new Padding(28, 24, 28, 20);
+            Controls.Add(_content);
+            _content.BringToFront();
+
+            _pageDownload = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg };
+            _pageHistory = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Visible = false };
+            _pageSettings = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Visible = false };
+            _content.Controls.Add(_pageDownload);
+            _content.Controls.Add(_pageHistory);
+            _content.Controls.Add(_pageSettings);
+        }
+
+        private void ShowPage(int index)
+        {
+            _pageDownload.Visible = index == 0;
+            _pageHistory.Visible = index == 1;
+            _pageSettings.Visible = index == 2;
+            if (index == 0) LayoutDownloadPage();
+            if (index == 1) RefreshHistory();
+            if (index == 2) RefreshSettings();
+        }
+
+        // ---------- helpers ----------
+        private static Label MkLabel(string text, Font f, Color c, Color bg)
+        {
+            Label l = new Label();
+            l.Text = text;
+            l.Font = f;
+            l.ForeColor = c;
+            l.BackColor = bg;
+            l.AutoSize = false;
+            l.TextAlign = ContentAlignment.MiddleLeft;
+            return l;
+        }
+
+        private static FlatButton MkButton(string text, string glyph, BtnVariant v, int w, Color bg)
+        {
+            FlatButton b = new FlatButton();
+            b.Text = text;
+            b.Glyph = glyph;
+            b.Variant = v;
+            b.Width = w;
+            b.Height = 36;
+            b.BackColor = bg;
+            return b;
+        }
+
+        // ---------- download page ----------
+        private void BuildDownloadPage()
+        {
+            Label title = MkLabel("Download", T.H1, T.Text, T.Bg);
+            title.Bounds = new Rectangle(0, 0, 400, 36);
+            _pageDownload.Controls.Add(title);
+
+            Label sub = MkLabel("Paste a link, choose a quality, press Download.", T.Small, T.Faint, T.Bg);
+            sub.Bounds = new Rectangle(2, 38, 600, 18);
+            _pageDownload.Controls.Add(sub);
+
+            _urlCard = new RoundedPanel();
+            _urlCard.Radius = 12;
+            _urlCard.Fill = T.Card;
+            _urlCard.BorderColor = T.Border;
+            _urlCard.BackColor = T.Bg;
+            _pageDownload.Controls.Add(_urlCard);
+
+            Label linkIcon = MkLabel("\uE71B", T.Glyph, T.Faint, T.Card);
+            linkIcon.Bounds = new Rectangle(14, 0, 24, 52);
+            linkIcon.TextAlign = ContentAlignment.MiddleCenter;
+            _urlCard.Controls.Add(linkIcon);
+
+            _txtUrl = new TextBox();
+            _txtUrl.BorderStyle = BorderStyle.None;
+            _txtUrl.BackColor = T.Card;
+            _txtUrl.ForeColor = T.Faint;
+            _txtUrl.Font = new Font("Segoe UI", 10.5f);
+            _txtUrl.Text = PlaceholderText;
+            _txtUrl.Bounds = new Rectangle(44, 16, 400, 22);
+            _txtUrl.KeyDown += delegate(object s, KeyEventArgs e)
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    e.SuppressKeyPress = true;
+                    if (!e.Control && !_phActive) BtnFetch_Click(null, null);
+                }
+                else if (e.Control && e.KeyCode == Keys.V)
+                {
+                    e.SuppressKeyPress = true;
+                    DoPaste();
+                }
+            };
+            _txtUrl.KeyPress += delegate(object s, KeyPressEventArgs e)
+            {
+                if (_phActive)
+                {
+                    _phActive = false;
+                    _txtUrl.Text = "";
+                    _txtUrl.ForeColor = T.Text;
+                }
+            };
+            _txtUrl.TextChanged += delegate
+            {
+                if (_phActive && _txtUrl.Text != PlaceholderText)
+                {
+                    _phActive = false;
+                    _txtUrl.ForeColor = T.Text;
+                }
+            };
+            _txtUrl.GotFocus += delegate
+            {
+                _txtUrl.SelectionStart = _txtUrl.Text.Length;
+                _urlCard.BorderColor = T.Accent;
+                _urlCard.Invalidate();
+            };
+            _txtUrl.LostFocus += delegate
+            {
+                if (_txtUrl.Text.Trim().Length == 0)
+                {
+                    _phActive = true;
+                    _txtUrl.Text = PlaceholderText;
+                    _txtUrl.ForeColor = T.Faint;
+                }
+                _urlCard.BorderColor = T.Border;
+                _urlCard.Invalidate();
+            };
+            _urlCard.Controls.Add(_txtUrl);
+            _txtUrl.GotFocus += delegate { _urlCard.BorderColor = T.Accent; _urlCard.Invalidate(); };
+            _txtUrl.LostFocus += delegate { _urlCard.BorderColor = T.Border; _urlCard.Invalidate(); };
+
+            _btnPaste = MkButton("Paste", null, BtnVariant.Ghost, 78, T.Card);
+            _btnPaste.Height = 34;
+            _btnPaste.Click += delegate { DoPaste(); };
+            _urlCard.Controls.Add(_btnPaste);
+
+            _btnFetch = MkButton("Fetch", null, BtnVariant.Primary, 88, T.Card);
+            _btnFetch.Height = 34;
+            _btnFetch.Click += BtnFetch_Click;
+            _urlCard.Controls.Add(_btnFetch);
+
+            _infoCard = new InfoCard();
+            _pageDownload.Controls.Add(_infoCard);
+
+            _lblQuality = MkLabel("Quality", T.H3, T.Text, T.Bg);
+            _pageDownload.Controls.Add(_lblQuality);
+
+            _grid = new FormatGrid();
+            _grid.SelectionChanged += delegate { };
+            _pageDownload.Controls.Add(_grid);
+
+            _empty = new EmptyState();
+            _pageDownload.Controls.Add(_empty);
+
+            _lblPlaylist = MkLabel("Playlist", T.H3, T.Text, T.Bg);
+            _pageDownload.Controls.Add(_lblPlaylist);
+
+            _btnAll = MkButton("All", null, BtnVariant.Ghost, 52, T.Bg);
+            _btnAll.Height = 26;
+            _btnAll.Font = T.Small;
+            _btnAll.Click += delegate { _entries.SetAll(true); _btnDownload.Text = "Download " + _entries.CheckedCount; };
+            _pageDownload.Controls.Add(_btnAll);
+
+            _btnNone = MkButton("None", null, BtnVariant.Ghost, 58, T.Bg);
+            _btnNone.Height = 26;
+            _btnNone.Font = T.Small;
+            _btnNone.Click += delegate { _entries.SetAll(false); _btnDownload.Text = "Download " + _entries.CheckedCount; };
+            _pageDownload.Controls.Add(_btnNone);
+
+            _entries = new EntryList();
+            _entries.Changed += delegate { if (_btnDownload != null) _btnDownload.Text = "Download " + _entries.CheckedCount; };
+            _pageDownload.Controls.Add(_entries);
+
+            _lblQueue = MkLabel("Queue", T.H3, T.Text, T.Bg);
+            _pageDownload.Controls.Add(_lblQueue);
+
+            _queue = new QueueList();
+            _queue.Jobs = _svc.Jobs;
+            _pageDownload.Controls.Add(_queue);
+
+            _footer = new Panel();
+            _footer.BackColor = T.Bg;
+            _footer.Dock = DockStyle.Bottom;
+            _footer.Height = 84;
+            _pageDownload.Controls.Add(_footer);
+
+            Divider div = new Divider();
+            div.Dock = DockStyle.Top;
+            div.Height = 1;
+            _footer.Controls.Add(div);
+
+            _btnFolder = MkButton("Downloads", "\uE8B7", BtnVariant.Ghost, 300, T.Bg);
+            _btnFolder.Height = 34;
+            _btnFolder.LeftAlign = true;
+            _btnFolder.Font = T.Small;
+            _btnFolder.Click += delegate { OpenFolder(Store.Current.DownloadFolder); };
+            _tip.SetToolTip(_btnFolder, "Open the download folder");
+            _footer.Controls.Add(_btnFolder);
+
+            _btnChange = MkButton("Change", null, BtnVariant.Soft, 74, T.Bg);
+            _btnChange.Height = 34;
+            _btnChange.Click += delegate { ChangeDownloadFolder(); };
+            _footer.Controls.Add(_btnChange);
+
+            _lblStatus = MkLabel("", T.Small, T.Dim, T.Bg);
+            _footer.Controls.Add(_lblStatus);
+
+            _progress = new ProgressBarEx();
+            _progress.BackColor = T.Bg;
+            _progress.Height = 8;
+            _footer.Controls.Add(_progress);
+
+            _btnCancel = MkButton("Cancel", null, BtnVariant.Ghost, 84, T.Bg);
+            _btnCancel.Height = 40;
+            _btnCancel.Visible = false;
+            _btnCancel.Click += delegate { _svc.CancelCurrent(); };
+            _footer.Controls.Add(_btnCancel);
+
+            _btnDownload = MkButton("Download", "\uE896", BtnVariant.Primary, 150, T.Bg);
+            _btnDownload.Height = 40;
+            _btnDownload.Click += BtnDownload_Click;
+            _footer.Controls.Add(_btnDownload);
+
+            _pageDownload.Resize += delegate { LayoutDownloadPage(); };
+        }
+
+        private void LayoutDownloadPage()
+        {
+            if (_pageDownload == null || _footer == null) return;
+            int W = _pageDownload.ClientSize.Width;
+            int H = _pageDownload.ClientSize.Height - _footer.Height;
+
+            _urlCard.Bounds = new Rectangle(0, 64, W, 52);
+            int inputW = Math.Max(120, W - 44 - 12 - 78 - 8 - 88 - 12);
+            _txtUrl.Width = inputW;
+            _btnPaste.Left = W - 12 - 88 - 8 - 78;
+            _btnPaste.Top = 9;
+            _btnFetch.Left = W - 12 - 88;
+            _btnFetch.Top = 9;
+
+            bool hasMedia = _media != null;
+            _infoCard.Visible = hasMedia;
+            _empty.Visible = !hasMedia;
+            _infoCard.Bounds = new Rectangle(0, 128, W, 92);
+
+            bool playlist = hasMedia && _media.IsPlaylist;
+            bool hasFormats = _grid.Items.Count > 0;
+
+            int y = 128 + 92 + 16;
+            if (!hasMedia)
+            {
+                _empty.Bounds = new Rectangle(0, 128, W, Math.Min(320, H - 150));
+                y = 128;
+            }
+
+            _lblPlaylist.Visible = playlist;
+            _entries.Visible = playlist;
+            _btnAll.Visible = playlist;
+            _btnNone.Visible = playlist;
+            if (playlist)
+            {
+                _lblPlaylist.Bounds = new Rectangle(0, y, 300, 20);
+                _btnNone.Left = W - 58;
+                _btnNone.Top = y - 3;
+                _btnAll.Left = W - 58 - 6 - 52;
+                _btnAll.Top = y - 3;
+                _entries.Bounds = new Rectangle(0, y + 26, W, 168);
+                y += 26 + 168 + 14;
+            }
+
+            _lblQuality.Visible = hasFormats;
+            _grid.Visible = hasFormats;
+            if (hasFormats)
+            {
+                _lblQuality.Bounds = new Rectangle(0, y, 300, 20);
+                y += 24;
+                int gh = Math.Max(62, _grid.HeightFor(W));
+                _grid.Bounds = new Rectangle(0, y, W, gh);
+                y += gh;
+            }
+
+            bool hasJobs = _svc.Jobs.Count > 0;
+            _lblQueue.Visible = hasJobs;
+            _queue.Visible = hasJobs;
+            if (hasJobs)
+            {
+                y += 14;
+                _lblQueue.Bounds = new Rectangle(0, y, 200, 20);
+                y += 24;
+                int qh = Math.Max(56, Math.Min(104, H - y - 8));
+                _queue.Bounds = new Rectangle(0, y, W, qh);
+            }
+
+            LayoutFooter(W);
+        }
+
+        private void LayoutFooter(int W)
+        {
+            _btnFolder.Bounds = new Rectangle(0, 8, 260, 34);
+            _btnChange.Bounds = new Rectangle(266, 8, 74, 34);
+            _lblStatus.Bounds = new Rectangle(0, 50, Math.Max(200, W - 340), 18);
+            _progress.Bounds = new Rectangle(Math.Max(0, W - 320), 54, 320, 8);
+            _btnDownload.Bounds = new Rectangle(W - 150, 6, 150, 40);
+            _btnCancel.Bounds = new Rectangle(W - 150 - 10 - 84, 6, 84, 40);
+            _btnCancel.Visible = _svc.Busy;
+            _progress.Visible = _svc.Busy;
+            if (!_svc.Busy) _btnDownload.Enabled = _media != null;
+        }
+
+        // ---------- actions ----------
+        private async void BtnFetch_Click(object sender, EventArgs e)
+        {
+            if (_fetching) return;
+            if (!File.Exists(YtDlp.ExePath))
+            {
+                SetStatus("yt-dlp.exe was not found next to MPCGrabber.exe.", T.Danger);
+                return;
+            }
+            string url = GetUrl();
+            if (url.Length == 0)
+            {
+                SetStatus("Paste a link first.", T.Warn);
+                return;
+            }
+            _fetching = true;
+            _btnFetch.Enabled = false;
+            SetStatus("Reading the link\u2026", T.Dim);
+            try
+            {
+                MediaInfo info = await YtDlp.FetchAsync(url);
+                _media = info;
+                _grid.SetItems(info.Formats, 0);
+                if (info.IsPlaylist)
+                {
+                    _entries.SetItems(info.Entries);
+                    _entries.SetAll(true);
+                }
+                LayoutDownloadPage();
+                _infoCard.Info = info;
+                _infoCard.Thumb = null;
+                _infoCard.Invalidate();
+                LoadThumb(info.ThumbnailUrl);
+                SetStatus(info.IsPlaylist ? "Playlist loaded \u2014 uncheck anything you don't want." : "Ready to download.", T.Dim);
+                if (_btnDownload != null) _btnDownload.Text = info.IsPlaylist ? "Download " + info.Entries.Count : "Download";
+                if (_autoDownload && !info.IsPlaylist)
+                {
+                    _autoDownload = false;
+                    BtnDownload_Click(null, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                _media = null;
+                _grid.SetItems(new System.Collections.Generic.List<FormatOption>(), 0);
+                _infoCard.Info = null;
+                _infoCard.Invalidate();
+                LayoutDownloadPage();
+                SetStatus(Shorten(ex.Message, 180), T.Danger);
+            }
+            finally
+            {
+                _fetching = false;
+                _btnFetch.Enabled = true;
+            }
+        }
+
+        private async void LoadThumb(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return;
+            try
+            {
+                WebClient wc = new WebClient();
+                wc.Headers[HttpRequestHeader.UserAgent] = "Mozilla/5.0";
+                byte[] data = await wc.DownloadDataTaskAsync(url);
+                using (MemoryStream ms = new MemoryStream(data))
+                {
+                    Image img = Image.FromStream(ms);
+                    if (IsDisposed) return;
+                    _infoCard.Thumb = img;
+                    _infoCard.Invalidate();
+                }
+            }
+            catch { }
+        }
+
+        private void BtnDownload_Click(object sender, EventArgs e)
+        {
+            if (_media == null)
+            {
+                SetStatus("Fetch a link first.", T.Warn);
+                return;
+            }
+            if (_grid.Items.Count == 0) return;
+            int idx = Math.Max(0, Math.Min(_grid.SelectedIndex, _grid.Items.Count - 1));
+            FormatOption fmt = _grid.Items[idx];
+
+            int count = 0;
+            if (_media.IsPlaylist)
+            {
+                for (int i = 0; i < _media.Entries.Count; i++)
+                {
+                    PlaylistEntry pe = _media.Entries[i];
+                    if (!pe.Checked) continue;
+                    _svc.Enqueue(pe.Url, pe.Title, fmt, Store.Current.DownloadFolder);
+                    count++;
+                }
+                if (count == 0) { SetStatus("No playlist items selected.", T.Warn); return; }
+            }
+            else
+            {
+                _svc.Enqueue(_media.Url, _media.Title, fmt, Store.Current.DownloadFolder);
+                count = 1;
+            }
+            _btnDownload.Enabled = false;
+            LayoutDownloadPage();
+            SetStatus(count == 1 ? "Download started." : "Queued " + count + " downloads.", T.Dim);
+        }
+
+        private void ServiceChanged(object sender, EventArgs e)
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            try
+            {
+                BeginInvoke((MethodInvoker)delegate { UpdateQueueUi(); });
+            }
+            catch { }
+        }
+
+        private void ServiceJobCompleted(HistoryEntry h)
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            try
+            {
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    Store.AddHistory(h);
+                    if (_historyList != null) { _historyList.Items = Store.History; _historyList.Refresh2(); }
+                    RefreshHistory();
+                    SetStatus("Saved: " + Path.GetFileName(h.FilePath), T.Success);
+                });
+            }
+            catch { }
+        }
+
+        private void UpdateQueueUi()
+        {
+            _queue.Refresh2();
+            DownloadJob cur = null;
+            for (int i = _svc.Jobs.Count - 1; i >= 0; i--)
+            {
+                DownloadJob j = _svc.Jobs[i];
+                if (j.State == JobState.Downloading || j.State == JobState.Converting) { cur = j; break; }
+            }
+            if (cur != null)
+            {
+                _progress.Value = cur.Progress;
+                string s = "Downloading";
+                if (cur.Speed.Length > 0) s += "  " + cur.Speed;
+                if (cur.Eta.Length > 0) s += "  \u00B7  ETA " + cur.Eta;
+                SetStatus(s, T.Dim);
+                _btnCancel.Visible = true;
+                _btnDownload.Enabled = false;
+            }
+            else
+            {
+                bool anyActive = false;
+                int queued = 0;
+                for (int i = 0; i < _svc.Jobs.Count; i++)
+                {
+                    if (_svc.Jobs[i].State == JobState.Queued) queued++;
+                    if (_svc.Jobs[i].State == JobState.Downloading) anyActive = true;
+                }
+                _btnCancel.Visible = false;
+                _btnDownload.Enabled = _media != null;
+                if (queued == 0 && !anyActive) _progress.Value = 0;
+                if (queued > 0) SetStatus(queued + " queued\u2026", T.Dim);
+            }
+            LayoutFooter(_pageDownload.ClientSize.Width);
+        }
+
+        private void DoPaste()
+        {
+            try
+            {
+                if (!Clipboard.ContainsText()) return;
+                string t = Clipboard.GetText().Trim();
+                if (t.Length == 0) return;
+                _phActive = false;
+                _txtUrl.ForeColor = T.Text;
+                _txtUrl.Text = t;
+                _txtUrl.Focus();
+                _txtUrl.SelectionStart = _txtUrl.Text.Length;
+            }
+            catch { }
+        }
+
+        private string GetUrl()
+        {
+            if (_phActive) return "";
+            if (_txtUrl.Text == PlaceholderText) return "";
+            return _txtUrl.Text.Trim();
+        }
+
+        private void SetStatus(string s, Color c)
+        {
+            if (_lblStatus == null) return;
+            _lblStatus.Text = s;
+            _lblStatus.ForeColor = c;
+        }
+
+        private static string Shorten(string s, int n)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            s = s.Replace("\r", " ").Replace("\n", " ").Trim();
+            return s.Length <= n ? s : s.Substring(0, n - 1) + "\u2026";
+        }
+
+        private void ChangeDownloadFolder()
+        {
+            using (FolderBrowserDialog fbd = new FolderBrowserDialog())
+            {
+                fbd.Description = "Where should downloads go?";
+                fbd.SelectedPath = Store.Current.DownloadFolder;
+                if (fbd.ShowDialog(this) == DialogResult.OK)
+                {
+                    Store.Current.DownloadFolder = fbd.SelectedPath;
+                    Store.SaveSettings();
+                    UpdateFolderChip();
+                }
+            }
+        }
+
+        private void UpdateFolderChip()
+        {
+            string p = Store.Current.DownloadFolder;
+            _btnFolder.Text = p;
+            _btnFolder.Width = 220;
+            _tip.SetToolTip(_btnFolder, p);
+        }
+
+        private static void OpenFolder(string path)
+        {
+            try
+            {
+                if (Directory.Exists(path)) System.Diagnostics.Process.Start(path);
+            }
+            catch { }
+        }
+
+        // ---------- history page ----------
+        private void BuildHistoryPage()
+        {
+            Label title = MkLabel("History", T.H1, T.Text, T.Bg);
+            title.Bounds = new Rectangle(0, 0, 400, 36);
+            _pageHistory.Controls.Add(title);
+
+            Label sub = MkLabel("Everything you've downloaded with MPC Grabber.", T.Small, T.Faint, T.Bg);
+            sub.Bounds = new Rectangle(2, 38, 600, 18);
+            _pageHistory.Controls.Add(sub);
+
+            _btnClearHistory = MkButton("Clear history", null, BtnVariant.Ghost, 118, T.Bg);
+            _btnClearHistory.Height = 34;
+            _btnClearHistory.Click += delegate { ClearHistory(); };
+            _pageHistory.Controls.Add(_btnClearHistory);
+
+            _historyList = new HistoryList();
+            _historyList.Items = Store.History;
+            _historyList.OpenRequested += delegate(HistoryEntry h) { OpenFile(h); };
+            _historyList.FolderRequested += delegate(HistoryEntry h) { RevealInExplorer(h.FilePath); };
+            _historyList.RedownloadRequested += delegate(HistoryEntry h) { Redownload(h); };
+            _historyList.DeleteRequested += delegate(HistoryEntry h) { DeleteHistory(h); };
+            _pageHistory.Controls.Add(_historyList);
+
+            _lblHistEmpty = MkLabel("Nothing here yet \u2014 your downloads will show up in this list.", T.Body, T.Faint, T.Bg);
+            _lblHistEmpty.TextAlign = ContentAlignment.MiddleCenter;
+            _pageHistory.Controls.Add(_lblHistEmpty);
+
+            _pageHistory.Resize += delegate
+            {
+                _btnClearHistory.Left = _pageHistory.ClientSize.Width - 118;
+                _btnClearHistory.Top = 4;
+                _historyList.Bounds = new Rectangle(0, 76, _pageHistory.ClientSize.Width, Math.Max(100, _pageHistory.ClientSize.Height - 76));
+                _lblHistEmpty.Bounds = new Rectangle(0, 76, _pageHistory.ClientSize.Width, Math.Max(100, _pageHistory.ClientSize.Height - 76));
+            };
+        }
+
+        private void RefreshHistory()
+        {
+            if (_historyList == null) return;
+            _historyList.Items = Store.History;
+            _historyList.Refresh2();
+            bool empty = Store.History.Count == 0;
+            _lblHistEmpty.Visible = empty;
+            _historyList.Visible = !empty;
+            _btnClearHistory.Visible = !empty;
+        }
+
+        private void ClearHistory()
+        {
+            if (Store.History.Count == 0) return;
+            if (MessageBox.Show(this, "Remove all history entries?\nFiles on disk are not deleted.", "Clear history",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            Store.History.Clear();
+            Store.SaveHistory();
+            RefreshHistory();
+        }
+
+        private void OpenFile(HistoryEntry h)
+        {
+            try
+            {
+                if (File.Exists(h.FilePath)) System.Diagnostics.Process.Start(h.FilePath);
+                else MessageBox.Show(this, "That file no longer exists:\n" + h.FilePath, "Missing file", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Cannot open", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        }
+
+        private static void RevealInExplorer(string path)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(path)) return;
+                if (File.Exists(path)) System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\"");
+                else if (Directory.Exists(Path.GetDirectoryName(path))) System.Diagnostics.Process.Start(Path.GetDirectoryName(path));
+            }
+            catch { }
+        }
+
+        private void Redownload(HistoryEntry h)
+        {
+            FormatOption fmt = new FormatOption();
+            if (h.Kind == "MP3")
+            {
+                fmt.AudioBitrate = Store.Current.AudioBitrate;
+                fmt.Title = "MP3 " + Store.Current.AudioBitrate;
+            }
+            else
+            {
+                fmt.VideoFmt = "bv*+ba/b";
+                fmt.Title = "Best";
+            }
+            _svc.Enqueue(h.Url, h.Title, fmt, Store.Current.DownloadFolder);
+            _nav.SelectedIndex = 0;
+            ShowPage(0);
+            SetStatus("Re-downloading " + Shorten(h.Title, 60), T.Dim);
+        }
+
+        private void DeleteHistory(HistoryEntry h)
+        {
+            Store.History.Remove(h);
+            Store.SaveHistory();
+            RefreshHistory();
+        }
+
+        // ---------- settings page ----------
+        private void BuildSettingsPage()
+        {
+            Label title = MkLabel("Settings", T.H1, T.Text, T.Bg);
+            title.Bounds = new Rectangle(0, 0, 400, 36);
+            _pageSettings.Controls.Add(title);
+
+            Label sub = MkLabel("Everything is stored next to the .exe \u2014 nothing is installed.", T.Small, T.Faint, T.Bg);
+            sub.Bounds = new Rectangle(2, 38, 700, 18);
+            _pageSettings.Controls.Add(sub);
+
+            RoundedPanel card = new RoundedPanel();
+            card.Fill = T.Card;
+            card.Radius = 12;
+            card.Bounds = new Rectangle(0, 78, 700, 132);
+            _pageSettings.Controls.Add(card);
+
+            Label lbl1 = MkLabel("Download folder", T.H3, T.Text, T.Card);
+            lbl1.Bounds = new Rectangle(18, 14, 300, 20);
+            card.Controls.Add(lbl1);
+
+            _lblSettFolder = MkLabel("", T.Small, T.Dim, T.Card);
+            _lblSettFolder.Bounds = new Rectangle(18, 40, 540, 18);
+            card.Controls.Add(_lblSettFolder);
+
+            _btnSettChange = MkButton("Change", null, BtnVariant.Soft, 90, T.Card);
+            _btnSettChange.Height = 32;
+            _btnSettChange.Click += delegate { ChangeDownloadFolder(); RefreshSettings(); };
+            card.Controls.Add(_btnSettChange);
+
+            _btnSettOpenFolder = MkButton("Open folder", "\uE8B7", BtnVariant.Ghost, 130, T.Card);
+            _btnSettOpenFolder.Height = 32;
+            _btnSettOpenFolder.Click += delegate { OpenFolder(Store.Current.DownloadFolder); };
+            card.Controls.Add(_btnSettOpenFolder);
+
+            Label lbl2 = MkLabel("MP3 quality", T.H3, T.Text, T.Card);
+            lbl2.Bounds = new Rectangle(18, 74, 300, 20);
+            card.Controls.Add(lbl2);
+
+            _rb320 = MkButton("320 kbps", null, BtnVariant.Soft, 96, T.Card);
+            _rb192 = MkButton("192 kbps", null, BtnVariant.Soft, 96, T.Card);
+            _rb128 = MkButton("128 kbps", null, BtnVariant.Soft, 96, T.Card);
+            FlatButton[] rbs = { _rb320, _rb192, _rb128 };
+            int[] vals = { 320, 192, 128 };
+            for (int i = 0; i < 3; i++)
+            {
+                FlatButton b = rbs[i];
+                int v = vals[i];
+                b.Height = 30;
+                b.Font = T.SmallB;
+                b.Top = 98;
+                b.Left = 18 + i * 104;
+                b.Click += delegate
+                {
+                    Store.Current.AudioBitrate = v;
+                    Store.SaveSettings();
+                    UpdateBitrateButtons();
+                };
+                card.Controls.Add(b);
+            }
+
+            RoundedPanel card2 = new RoundedPanel();
+            card2.Fill = T.Card;
+            card2.Radius = 12;
+            card2.Bounds = new Rectangle(0, 226, 700, 148);
+            _pageSettings.Controls.Add(card2);
+
+            Label lbl3 = MkLabel("Cookies", T.H3, T.Text, T.Card);
+            lbl3.Bounds = new Rectangle(18, 14, 300, 20);
+            card2.Controls.Add(lbl3);
+
+            _lblCookies = MkLabel("", T.Small, T.Dim, T.Card);
+            _lblCookies.Bounds = new Rectangle(18, 40, 660, 54);
+            card2.Controls.Add(_lblCookies);
+
+            _btnClearHistory2 = MkButton("Clear history", null, BtnVariant.Ghost, 118, T.Card);
+            _btnClearHistory2.Height = 30;
+            _btnClearHistory2.Click += delegate { ClearHistory(); };
+
+            RoundedPanel card3 = new RoundedPanel();
+            card3.Fill = T.Card;
+            card3.Radius = 12;
+            card3.Bounds = new Rectangle(0, 396, 700, 92);
+            _pageSettings.Controls.Add(card3);
+
+            Label lbl4 = MkLabel("History", T.H3, T.Text, T.Card);
+            lbl4.Bounds = new Rectangle(18, 12, 300, 20);
+            card3.Controls.Add(lbl4);
+
+            Label lbl5 = MkLabel("Removes the download list only \u2014 the files stay on disk.", T.Small, T.Dim, T.Card);
+            lbl5.Bounds = new Rectangle(18, 38, 460, 18);
+            card3.Controls.Add(lbl5);
+
+            _btnClearHistory2.Left = 700 - 136;
+            _btnClearHistory2.Top = 31;
+            card3.Controls.Add(_btnClearHistory2);
+
+            Label about = MkLabel("", T.Small, T.Faint, T.Bg);
+            about.Name = "about";
+            about.Bounds = new Rectangle(4, 508, 700, 60);
+            _pageSettings.Controls.Add(about);
+
+            _pageSettings.Resize += delegate
+            {
+                card.Width = Math.Min(760, _pageSettings.ClientSize.Width);
+                card2.Width = card.Width;
+                card3.Width = card.Width;
+                _btnSettChange.Left = card.Width - 110;
+                _btnSettOpenFolder.Left = card.Width - 110 - 140;
+                _btnClearHistory2.Left = card3.Width - 136;
+                about.Width = _pageSettings.ClientSize.Width;
+            };
+        }
+
+        private void UpdateBitrateButtons()
+        {
+            FlatButton[] rbs = { _rb320, _rb192, _rb128 };
+            int[] vals = { 320, 192, 128 };
+            for (int i = 0; i < 3; i++)
+                rbs[i].Variant = Store.Current.AudioBitrate == vals[i] ? BtnVariant.Primary : BtnVariant.Soft;
+        }
+
+        private void RefreshSettings()
+        {
+            _lblSettFolder.Text = Store.Current.DownloadFolder;
+            string cookies = YtDlp.FindCookies();
+            if (cookies != null)
+            {
+                _lblCookies.Text = "Using " + Path.GetFileName(cookies) + "\n" + cookies + "\nEdit or replace that file to update your login cookies.";
+                _lblCookies.ForeColor = T.Dim;
+            }
+            else
+            {
+                _lblCookies.Text = "No cookies file found next to the .exe.\nCreate a cookies.txt (Netscape format) there if a video needs you to be signed in.";
+                _lblCookies.ForeColor = T.Warn;
+            }
+            UpdateBitrateButtons();
+            Control[] found = _pageSettings.Controls.Find("about", true);
+            if (found.Length > 0)
+            {
+                found[0].Text = "yt-dlp " + _ytVersion + (YtDlp.HasFfmpeg ? "  \u00B7  ffmpeg found" : "  \u00B7  ffmpeg NOT found") +
+                                "\nHistory and settings live beside this .exe (portable \u2014 no registry, no AppData).";
+            }
+        }
+
+        private string _ytVersion = "";
+
+        // ---------- lifecycle ----------
+        private async void MainForm_Load(object sender, EventArgs e)
+        {
+            Store.Load();
+            UpdateFolderChip();
+            RefreshHistory();
+            RefreshSettings();
+            UpdateCookiePill();
+            LayoutDownloadPage();
+            if (_startupUrl.Length > 0)
+            {
+                _phActive = false;
+                _txtUrl.ForeColor = T.Text;
+                _txtUrl.Text = _startupUrl;
+                _txtUrl.SelectionStart = _txtUrl.Text.Length;
+                _txtUrl.SelectionLength = 0;
+                BtnFetch_Click(null, null);
+            }
+            else
+            {
+                _txtUrl.Focus();
+            }
+
+            _ytVersion = await YtDlp.VersionAsync();
+            RefreshSettings();
+        }
+
+        private void UpdateCookiePill()
+        {
+            string c = YtDlp.FindCookies();
+            if (c != null)
+            {
+                _cookiePill.Text = "cookies \u2713";
+                _cookiePill.DotColor = T.Success;
+                _cookiePill.TextColor = T.Dim;
+                _tip.SetToolTip(_cookiePill, c);
+            }
+            else
+            {
+                _cookiePill.Text = "no cookies";
+                _cookiePill.DotColor = T.Warn;
+                _cookiePill.TextColor = T.Dim;
+                _tip.SetToolTip(_cookiePill, "Add cookies.txt next to the exe for signed-in videos.");
+            }
+        }
+
+        private void MainForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Control && e.KeyCode == Keys.Enter)
+            {
+                e.SuppressKeyPress = true;
+                if (_pageDownload.Visible) BtnDownload_Click(null, null);
+            }
+            else if (e.Control && e.KeyCode == Keys.L)
+            {
+                e.SuppressKeyPress = true;
+                _txtUrl.Focus();
+                _txtUrl.SelectionStart = _txtUrl.Text.Length;
+            }
+            else if (e.KeyCode == Keys.Escape && _svc.Busy)
+            {
+                _svc.CancelCurrent();
+            }
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            _svc.Shutdown();
+        }
+    }
+}

@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+
+# Application state (portable, per-user)
+mpcgrabber.settings.json
+mpcgrabber.history.json
+mpcgrabber.log
+crash.log
+
+# Cookies must never be committed
+cookies.txt
+cookies*.txt
+*.cookies.txt
+
+# Local dev artifacts
+shots/
+*.user
+.vs/
