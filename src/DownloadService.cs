@@ -259,6 +259,18 @@ namespace MpcGrabber
             catch { }
         }
 
+        public void ClearFinished()
+        {
+            lock (Jobs)
+            {
+                for (int i = Jobs.Count - 1; i >= 0; i--)
+                {
+                    JobState st = Jobs[i].State;
+                    if (st == JobState.Done || st == JobState.Failed || st == JobState.Cancelled)
+                        Jobs.RemoveAt(i);
+                }
+            }
+        }
         public void Shutdown()
         {
             try

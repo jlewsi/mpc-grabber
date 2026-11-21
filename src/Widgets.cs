@@ -283,7 +283,6 @@ namespace MpcGrabber
     {
         public string Glyph;
         public string Label;
-        public object Tag;
         public NavItem(string glyph, string label) { Glyph = glyph; Label = label; }
     }
 

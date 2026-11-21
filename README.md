@@ -42,8 +42,9 @@ same folder, so the whole folder is the app. Deleting the folder removes every t
 - **Real formats per URL** — after *Fetch* it shows the actual resolutions with approximate sizes,
   plus **Best** and **MP3 320 / 192 / 128**.
 - **Playlists** — checkbox list with All/None; your chosen quality applies to every checked item.
-- **Queue** — one download at a time, live percent / speed / ETA, cancel any time. The queue grows to
-  fill the window and auto-scrolls to keep the file currently downloading in view.
+- **Queue page** — its own section in the sidebar. Starting a playlist download jumps straight to it,
+  with every item's state, quality, live percent / speed / ETA, a *Cancel current* and a
+  *Clear finished* button. It auto-scrolls to keep the file currently downloading in view.
 - **Defaults** — set a default video quality and a default MP3 bitrate; the matching format is
   preselected every time you fetch a link.
 - **History** — open file, reveal in Explorer, re-download, delete, clear. Files on disk are never

@@ -252,11 +252,13 @@ namespace MpcGrabber
                 Rectangle r = new Rectangle(0, i * RowH - ScrollPos, Width - 8, RowH);
                 if (r.Bottom < 0 || r.Top > Height) continue;
 
-                T.FillRound(g, T.Card2, new Rectangle(r.X, r.Y + 2, r.Width, RowH - 8), 9);
-                T.StrokeRound(g, T.BorderSoft, new Rectangle(r.X, r.Y + 2, r.Width, RowH - 8), 9, 1f);
+                bool active = j.State == JobState.Downloading || j.State == JobState.Converting;
+                Rectangle card = new Rectangle(r.X, r.Y + 2, r.Width, RowH - 8);
+                T.FillRound(g, active ? T.AccentTint : T.Card2, card, 9);
+                T.StrokeRound(g, active ? T.Accent : T.BorderSoft, card, 9, 1f);
 
                 Color dot = T.Faint;
-                if (j.State == JobState.Downloading || j.State == JobState.Converting) dot = T.Accent;
+                if (active) dot = T.Accent;
                 else if (j.State == JobState.Done) dot = T.Success;
                 else if (j.State == JobState.Failed) dot = T.Danger;
                 else if (j.State == JobState.Cancelled) dot = T.Warn;
@@ -264,12 +266,19 @@ namespace MpcGrabber
                 using (SolidBrush b = new SolidBrush(dot))
                     g.FillEllipse(b, r.X + 14, r.Y + 16, 7, 7);
 
-                T.Draw(g, j.Title, T.Body, T.Text,
-                    new Rectangle(r.X + 30, r.Y + 6, r.Width - 150, 20),
+                string q = j.QualityLabel == null ? "" : j.QualityLabel;
+                int qw = q.Length > 0 ? 92 : 0;
+                if (qw > 0)
+                    T.Draw(g, q, T.SmallB, active ? T.Accent : T.Faint,
+                        new Rectangle(r.Right - qw - 16, r.Y + 6, qw, 20),
+                        TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
+
+                T.Draw(g, (i + 1) + ".  " + j.Title, T.Body, T.Text,
+                    new Rectangle(r.X + 30, r.Y + 6, r.Width - 30 - qw - 34, 20),
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
 
                 string status = j.Status;
-                if (j.State == JobState.Downloading)
+                if (j.State == JobState.Downloading || j.State == JobState.Converting)
                 {
                     status += "  " + (int)(j.Progress * 100) + "%";
                     if (j.Speed.Length > 0) status += "  \u00B7  " + j.Speed;
@@ -278,13 +287,13 @@ namespace MpcGrabber
                 if (j.State == JobState.Failed && j.Error.Length > 0) status = "Failed \u2014 " + j.Error;
 
                 T.Draw(g, status, T.Small, j.State == JobState.Failed ? T.Danger : T.Dim,
-                    new Rectangle(r.X + 30, r.Y + 27, r.Width - 44, 18),
+                    new Rectangle(r.X + 30, r.Y + 27, r.Width - qw - 48, 18),
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
 
-                if (j.State == JobState.Downloading || j.State == JobState.Converting)
+                if (active)
                 {
-                    Rectangle track = new Rectangle(r.X + 30, r.Y + 46, r.Width - 44, 4);
-                    T.FillRound(g, T.BorderSoft, track, 2);
+                    Rectangle track = new Rectangle(r.X + 30, r.Y + 47, r.Width - 46, 4);
+                    T.FillRound(g, T.Border, track, 2);
                     int w = (int)(track.Width * j.Progress);
                     if (w > 2) T.FillRound(g, T.Accent, new Rectangle(track.X, track.Y, w, 4), 2);
                 }

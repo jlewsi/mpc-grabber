@@ -143,7 +143,7 @@ namespace MpcGrabber
         private ToolTip _tip = new ToolTip();
         private bool _fetching;
 
-        private Panel _sidebar, _content, _pageDownload, _pageHistory, _pageSettings;
+        private Panel _sidebar, _content, _pageDownload, _pageHistory, _pageSettings, _pageQueue;
         private NavBar _nav;
         private Pill _cookiePill;
 
@@ -159,7 +159,9 @@ namespace MpcGrabber
         private InfoCard _infoCard;
         private Label _lblQuality;
         private FormatGrid _grid;
-        private Label _lblPlaylist, _lblQueue, _lblStatus;
+        private Label _lblPlaylist, _lblStatus;
+        private Label _lblQueueSummary;
+        private FlatButton _btnQueueCancel, _btnQueueClear;
         private FlatButton _btnAll, _btnNone;
         private EntryList _entries;
         private QueueList _queue;
@@ -202,6 +204,7 @@ namespace MpcGrabber
             BuildDownloadPage();
             BuildHistoryPage();
             BuildSettingsPage();
+            BuildQueuePage();
 
             _svc.Changed += ServiceChanged;
             _svc.JobCompleted += ServiceJobCompleted;
@@ -283,10 +286,11 @@ namespace MpcGrabber
             _sidebar.Controls.Add(logo);
 
             _nav = new NavBar();
-            _nav.Bounds = new Rectangle(0, 92, 212, 150);
+            _nav.Bounds = new Rectangle(0, 92, 212, 204);
             _nav.Items.Add(new NavItem("\uE896", "Download"));
             _nav.Items.Add(new NavItem("\uE81C", "History"));
             _nav.Items.Add(new NavItem("\uE713", "Settings"));
+            _nav.Items.Add(new NavItem("\uE8FD", "Queue"));
             _nav.SelectionChanged += delegate { ShowPage(_nav.SelectedIndex); };
             _sidebar.Controls.Add(_nav);
 
@@ -330,9 +334,11 @@ namespace MpcGrabber
             _pageDownload = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg };
             _pageHistory = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Visible = false };
             _pageSettings = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Visible = false };
+            _pageQueue = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Visible = false };
             _content.Controls.Add(_pageDownload);
             _content.Controls.Add(_pageHistory);
             _content.Controls.Add(_pageSettings);
+            _content.Controls.Add(_pageQueue);
         }
 
         private void ShowPage(int index)
@@ -340,9 +346,11 @@ namespace MpcGrabber
             _pageDownload.Visible = index == 0;
             _pageHistory.Visible = index == 1;
             _pageSettings.Visible = index == 2;
+            _pageQueue.Visible = index == 3;
             if (index == 0) LayoutDownloadPage();
             if (index == 1) RefreshHistory();
             if (index == 2) RefreshSettings();
+            if (index == 3) { LayoutQueuePage(); RefreshQueuePage(); }
         }
 
         // ---------- helpers ----------
@@ -493,13 +501,6 @@ namespace MpcGrabber
             _entries.Changed += delegate { if (_btnDownload != null) _btnDownload.Text = "Download " + _entries.CheckedCount; };
             _pageDownload.Controls.Add(_entries);
 
-            _lblQueue = MkLabel("Queue", T.H3, T.Text, T.Bg);
-            _pageDownload.Controls.Add(_lblQueue);
-
-            _queue = new QueueList();
-            _queue.Jobs = _svc.Jobs;
-            _pageDownload.Controls.Add(_queue);
-
             _footer = new Panel();
             _footer.BackColor = T.Bg;
             _footer.Dock = DockStyle.Bottom;
@@ -603,17 +604,6 @@ namespace MpcGrabber
                 y += gh;
             }
 
-            _lblQueue.Visible = hasJobs;
-            _queue.Visible = hasJobs;
-            if (hasJobs)
-            {
-                y += 14;
-                _lblQueue.Bounds = new Rectangle(0, y, 200, 20);
-                y += 24;
-                int qh = Math.Max(90, H - y - 6);
-                _queue.Bounds = new Rectangle(0, y, W, qh);
-                ScrollQueueToActive();
-            }
 
             LayoutFooter(W);
         }
@@ -760,8 +750,16 @@ namespace MpcGrabber
                 _svc.Enqueue(_media.Url, _media.Title, fmt, Store.Current.DownloadFolder);
                 count = 1;
             }
-            _btnDownload.Enabled = false;
-            LayoutDownloadPage();
+            if (count > 1)
+            {
+                _nav.SelectedIndex = 3;
+                ShowPage(3);
+            }
+            else
+            {
+                _btnDownload.Enabled = false;
+                LayoutDownloadPage();
+            }
             SetStatus(count == 1 ? "Download started." : "Queued " + count + " downloads.", T.Dim);
         }
 
@@ -810,8 +808,9 @@ namespace MpcGrabber
         private void UpdateQueueUi()
         {
             _queue.Refresh2();
-
             ScrollQueueToActive();
+            RefreshQueuePage();
+
             DownloadJob cur = null;
             for (int i = _svc.Jobs.Count - 1; i >= 0; i--)
             {
@@ -844,7 +843,6 @@ namespace MpcGrabber
             }
             LayoutFooter(_pageDownload.ClientSize.Width);
         }
-
         private void DoPaste()
         {
             try
@@ -1210,6 +1208,74 @@ namespace MpcGrabber
 
         private string _ytVersion = "";
 
+        // ---------- queue page ----------
+        private void BuildQueuePage()
+        {
+            Label title = MkLabel("Queue", T.H1, T.Text, T.Bg);
+            title.Bounds = new Rectangle(0, 0, 400, 36);
+            _pageQueue.Controls.Add(title);
+
+            _lblQueueSummary = MkLabel("Nothing queued yet.", T.Small, T.Faint, T.Bg);
+            _lblQueueSummary.Bounds = new Rectangle(2, 38, 620, 18);
+            _pageQueue.Controls.Add(_lblQueueSummary);
+
+            _btnQueueClear = MkButton("Clear finished", null, BtnVariant.Ghost, 126, T.Bg);
+            _btnQueueClear.Height = 34;
+            _btnQueueClear.Top = 4;
+            _btnQueueClear.Click += delegate
+            {
+                _svc.ClearFinished();
+                LayoutQueuePage();
+                UpdateQueueUi();
+            };
+            _pageQueue.Controls.Add(_btnQueueClear);
+
+            _btnQueueCancel = MkButton("Cancel current", null, BtnVariant.Ghost, 132, T.Bg);
+            _btnQueueCancel.Height = 34;
+            _btnQueueCancel.Top = 4;
+            _btnQueueCancel.Click += delegate { _svc.CancelCurrent(); };
+            _pageQueue.Controls.Add(_btnQueueCancel);
+
+            _queue = new QueueList();
+            _queue.Jobs = _svc.Jobs;
+            _pageQueue.Controls.Add(_queue);
+
+            _pageQueue.Resize += delegate { LayoutQueuePage(); };
+        }
+
+        private void LayoutQueuePage()
+        {
+            if (_pageQueue == null) return;
+            int w = _pageQueue.ClientSize.Width;
+            int h = _pageQueue.ClientSize.Height;
+            _btnQueueCancel.Left = w - 132;
+            _btnQueueClear.Left = w - 132 - 8 - 126;
+            _queue.Bounds = new Rectangle(0, 76, w, Math.Max(120, h - 84));
+            bool any = _svc.Jobs.Count > 0;
+            _queue.Visible = any;
+            _btnQueueClear.Visible = any;
+            ScrollQueueToActive();
+        }
+
+        private void RefreshQueuePage()
+        {
+            int total = _svc.Jobs.Count;
+            int done = 0, queued = 0, failed = 0, running = 0;
+            for (int i = 0; i < total; i++)
+            {
+                JobState st = _svc.Jobs[i].State;
+                if (st == JobState.Done) done++;
+                else if (st == JobState.Queued) queued++;
+                else if (st == JobState.Failed || st == JobState.Cancelled) failed++;
+                else running++;
+            }
+            if (total == 0)
+                _lblQueueSummary.Text = "Nothing queued yet \u2014 start a download from the Download page.";
+            else
+                _lblQueueSummary.Text = string.Format("{0} item{1}  \u00B7  {2} done  \u00B7  {3} downloading  \u00B7  {4} queued{5}",
+                    total, total == 1 ? "" : "s", done, running, queued, failed > 0 ? "  \u00B7  " + failed + " failed" : "");
+            _btnQueueCancel.Enabled = running > 0;
+        }
         // ---------- lifecycle ----------
         private async void MainForm_Load(object sender, EventArgs e)
         {
@@ -1237,6 +1303,19 @@ namespace MpcGrabber
             RefreshSettings();
         }
 
+        private void SeedDemoQueue()
+        {
+            for (int i = 0; i < 12; i++)
+            {
+                DownloadJob j = new DownloadJob();
+                j.Title = "Demo video " + (i + 1) + " \u2014 a fairly long title to check the ellipsis behaviour";
+                j.QualityLabel = i % 2 == 0 ? "1080p" : "MP3 320";
+                if (i < 6) { j.State = JobState.Done; j.Progress = 1; j.Status = "Done"; }
+                else if (i == 6) { j.State = JobState.Downloading; j.Progress = 0.42; j.Status = "Downloading"; j.Speed = "2.4MiB/s"; j.Eta = "00:42"; }
+                else { j.State = JobState.Queued; j.Status = "Queued"; }
+                _svc.Jobs.Add(j);
+            }
+        }
         private void UpdateCookiePill()
         {
             string c = YtDlp.FindCookies();
