@@ -39,6 +39,8 @@ namespace MpcGrabber
                 Current.DownloadFolder = DefaultDownloads;
             if (Current.AudioBitrate != 320 && Current.AudioBitrate != 192 && Current.AudioBitrate != 128)
                 Current.AudioBitrate = 320;
+            if (!IsKnownVideoQuality(Current.VideoQuality))
+                Current.VideoQuality = "best";
 
             try
             {
@@ -49,6 +51,12 @@ namespace MpcGrabber
                 }
             }
             catch { History = new List<HistoryEntry>(); }
+        }
+
+        public static bool IsKnownVideoQuality(string q)
+        {
+            if (string.IsNullOrEmpty(q)) return false;
+            return q == "best" || q == "2160" || q == "1440" || q == "1080" || q == "720" || q == "480" || q == "360";
         }
 
         public static void SaveSettings()

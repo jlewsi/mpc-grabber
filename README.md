@@ -42,11 +42,16 @@ same folder, so the whole folder is the app. Deleting the folder removes every t
 - **Real formats per URL** — after *Fetch* it shows the actual resolutions with approximate sizes,
   plus **Best** and **MP3 320 / 192 / 128**.
 - **Playlists** — checkbox list with All/None; your chosen quality applies to every checked item.
-- **Queue** — one download at a time, live percent / speed / ETA, cancel any time.
+- **Queue** — one download at a time, live percent / speed / ETA, cancel any time. The queue grows to
+  fill the window and auto-scrolls to keep the file currently downloading in view.
+- **Defaults** — set a default video quality and a default MP3 bitrate; the matching format is
+  preselected every time you fetch a link.
 - **History** — open file, reveal in Explorer, re-download, delete, clear. Files on disk are never
   deleted by clearing history.
-- **Settings** — download folder (default `Downloads` next to the exe), default MP3 bitrate,
-  cookie status, yt-dlp/ffmpeg detection.
+- **Settings** — download folder (default `Downloads` next to the exe), default video quality,
+  default MP3 bitrate, cookie status, yt-dlp/ffmpeg detection.
+- **Terminal look** — black background, green accents, white text; green button outlines and a green
+  window frame while the window is floating (black once maximized).
 - Drag-and-drop URLs, dark title bar, single ~80 KB executable.
 
 ![Settings](docs/screenshot-settings.png)

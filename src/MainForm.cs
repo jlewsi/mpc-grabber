@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
@@ -173,7 +174,10 @@ namespace MpcGrabber
         // settings page
         private FlatButton _btnSettChange, _btnSettOpenFolder, _btnClearHistory2;
         private Label _lblSettFolder, _lblCookies;
-        private FlatButton _rb320, _rb192, _rb128;
+        private FlatButton[] _videoBtns;
+        private FlatButton[] _audioBtns;
+        private static readonly string[] _videoVals = { "best", "2160", "1440", "1080", "720", "480", "360" };
+        private static readonly int[] _audioVals = { 320, 192, 128 };
 
         public MainForm(string[] args)
         {
@@ -187,8 +191,8 @@ namespace MpcGrabber
             BackColor = T.Bg;
             ForeColor = T.Text;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(1240, 800);
-            MinimumSize = new Size(1060, 700);
+            ClientSize = new Size(1300, 840);
+            MinimumSize = new Size(1060, 560);
             FormBorderStyle = FormBorderStyle.Sizable;
             KeyPreview = true;
             T.EnableDoubleBuffer(this);
@@ -238,12 +242,29 @@ namespace MpcGrabber
                 DwmSetWindowAttribute(Handle, 19, ref on, 4);
                 int caption = ColorTranslator.ToWin32(T.Bg);
                 DwmSetWindowAttribute(Handle, 35, ref caption, 4);
-                int text = ColorTranslator.ToWin32(T.Text);
+                int text = ColorTranslator.ToWin32(T.Accent);
                 DwmSetWindowAttribute(Handle, 36, ref text, 4);
-                int border = ColorTranslator.ToWin32(T.Bg);
-                DwmSetWindowAttribute(Handle, 34, ref border, 4);
                 int round = 2;
                 DwmSetWindowAttribute(Handle, 33, ref round, 4);
+                UpdateDwmBorder();
+            }
+            catch { }
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            UpdateDwmBorder();
+        }
+
+        private void UpdateDwmBorder()
+        {
+            if (!IsHandleCreated) return;
+            try
+            {
+                // green frame while floating, black once maximized
+                int color = WindowState == FormWindowState.Maximized ? ColorTranslator.ToWin32(T.Bg) : ColorTranslator.ToWin32(T.Accent);
+                DwmSetWindowAttribute(Handle, 34, ref color, 4);
             }
             catch { }
         }
@@ -276,7 +297,7 @@ namespace MpcGrabber
             _sidebar.Controls.Add(_cookiePill);
 
             Label ver = new Label();
-            ver.Text = "v1.0  \u00B7  portable";
+            ver.Text = "v1.1  \u00B7  portable";
             ver.Font = T.Tiny;
             ver.ForeColor = T.Faint;
             ver.BackColor = T.Sidebar;
@@ -540,8 +561,9 @@ namespace MpcGrabber
             _btnFetch.Top = 9;
 
             bool hasMedia = _media != null;
+            bool hasJobs = _svc.Jobs.Count > 0;
             _infoCard.Visible = hasMedia;
-            _empty.Visible = !hasMedia;
+            _empty.Visible = !hasMedia && !hasJobs;
             _infoCard.Bounds = new Rectangle(0, 128, W, 92);
 
             bool playlist = hasMedia && _media.IsPlaylist;
@@ -550,8 +572,8 @@ namespace MpcGrabber
             int y = 128 + 92 + 16;
             if (!hasMedia)
             {
-                _empty.Bounds = new Rectangle(0, 128, W, Math.Min(320, H - 150));
                 y = 128;
+                if (!hasJobs) _empty.Bounds = new Rectangle(0, 128, W, Math.Max(180, H - 128 - 8));
             }
 
             _lblPlaylist.Visible = playlist;
@@ -577,10 +599,10 @@ namespace MpcGrabber
                 y += 24;
                 int gh = Math.Max(62, _grid.HeightFor(W));
                 _grid.Bounds = new Rectangle(0, y, W, gh);
+                _grid.RefreshLayout();
                 y += gh;
             }
 
-            bool hasJobs = _svc.Jobs.Count > 0;
             _lblQueue.Visible = hasJobs;
             _queue.Visible = hasJobs;
             if (hasJobs)
@@ -588,8 +610,9 @@ namespace MpcGrabber
                 y += 14;
                 _lblQueue.Bounds = new Rectangle(0, y, 200, 20);
                 y += 24;
-                int qh = Math.Max(56, Math.Min(104, H - y - 8));
+                int qh = Math.Max(90, H - y - 6);
                 _queue.Bounds = new Rectangle(0, y, W, qh);
+                ScrollQueueToActive();
             }
 
             LayoutFooter(W);
@@ -609,6 +632,31 @@ namespace MpcGrabber
         }
 
         // ---------- actions ----------
+        private int DefaultFormatIndex(List<FormatOption> items)
+        {
+            if (items == null || items.Count == 0) return 0;
+            string pref = Store.Current.VideoQuality;
+            if (string.IsNullOrEmpty(pref) || pref == "best") return 0;
+            int want;
+            if (!int.TryParse(pref, out want)) return 0;
+
+            int exact = -1;
+            int fallback = -1;
+            int fallbackH = -1;
+            for (int i = 0; i < items.Count; i++)
+            {
+                string title = items[i].Title;
+                if (title == null || !title.EndsWith("p", StringComparison.Ordinal)) continue;
+                int h;
+                if (!int.TryParse(title.Substring(0, title.Length - 1), out h)) continue;
+                if (h == want) { exact = i; break; }
+                if (h < want && h > fallbackH) { fallbackH = h; fallback = i; }
+            }
+            if (exact >= 0) return exact;
+            if (fallback >= 0) return fallback;
+            return 0;
+        }
+
         private async void BtnFetch_Click(object sender, EventArgs e)
         {
             if (_fetching) return;
@@ -630,7 +678,7 @@ namespace MpcGrabber
             {
                 MediaInfo info = await YtDlp.FetchAsync(url);
                 _media = info;
-                _grid.SetItems(info.Formats, 0);
+                _grid.SetItems(info.Formats, DefaultFormatIndex(info.Formats));
                 if (info.IsPlaylist)
                 {
                     _entries.SetItems(info.Entries);
@@ -643,7 +691,7 @@ namespace MpcGrabber
                 LoadThumb(info.ThumbnailUrl);
                 SetStatus(info.IsPlaylist ? "Playlist loaded \u2014 uncheck anything you don't want." : "Ready to download.", T.Dim);
                 if (_btnDownload != null) _btnDownload.Text = info.IsPlaylist ? "Download " + info.Entries.Count : "Download";
-                if (_autoDownload && !info.IsPlaylist)
+                if (_autoDownload)
                 {
                     _autoDownload = false;
                     BtnDownload_Click(null, null);
@@ -743,9 +791,27 @@ namespace MpcGrabber
             catch { }
         }
 
+        private void ScrollQueueToActive()
+        {
+            int idx = -1;
+            for (int i = 0; i < _svc.Jobs.Count; i++)
+            {
+                JobState st = _svc.Jobs[i].State;
+                if (st == JobState.Downloading || st == JobState.Converting) { idx = i; break; }
+            }
+            if (idx < 0)
+            {
+                for (int i = 0; i < _svc.Jobs.Count; i++)
+                    if (_svc.Jobs[i].State == JobState.Queued) { idx = i; break; }
+            }
+            if (idx >= 0) _queue.EnsureVisible(idx);
+        }
+
         private void UpdateQueueUi()
         {
             _queue.Refresh2();
+
+            ScrollQueueToActive();
             DownloadJob cur = null;
             for (int i = _svc.Jobs.Count - 1; i >= 0; i--)
             {
@@ -964,18 +1030,19 @@ namespace MpcGrabber
             sub.Bounds = new Rectangle(2, 38, 700, 18);
             _pageSettings.Controls.Add(sub);
 
+            // --- download folder ---
             RoundedPanel card = new RoundedPanel();
             card.Fill = T.Card;
             card.Radius = 12;
-            card.Bounds = new Rectangle(0, 78, 700, 132);
+            card.Bounds = new Rectangle(0, 78, 760, 92);
             _pageSettings.Controls.Add(card);
 
             Label lbl1 = MkLabel("Download folder", T.H3, T.Text, T.Card);
-            lbl1.Bounds = new Rectangle(18, 14, 300, 20);
+            lbl1.Bounds = new Rectangle(18, 12, 300, 20);
             card.Controls.Add(lbl1);
 
             _lblSettFolder = MkLabel("", T.Small, T.Dim, T.Card);
-            _lblSettFolder.Bounds = new Rectangle(18, 40, 540, 18);
+            _lblSettFolder.Bounds = new Rectangle(18, 38, 480, 18);
             card.Controls.Add(_lblSettFolder);
 
             _btnSettChange = MkButton("Change", null, BtnVariant.Soft, 90, T.Card);
@@ -988,54 +1055,89 @@ namespace MpcGrabber
             _btnSettOpenFolder.Click += delegate { OpenFolder(Store.Current.DownloadFolder); };
             card.Controls.Add(_btnSettOpenFolder);
 
-            Label lbl2 = MkLabel("MP3 quality", T.H3, T.Text, T.Card);
-            lbl2.Bounds = new Rectangle(18, 74, 300, 20);
-            card.Controls.Add(lbl2);
+            // --- defaults ---
+            RoundedPanel cardDefaults = new RoundedPanel();
+            cardDefaults.Fill = T.Card;
+            cardDefaults.Radius = 12;
+            cardDefaults.Bounds = new Rectangle(0, 182, 760, 150);
+            _pageSettings.Controls.Add(cardDefaults);
 
-            _rb320 = MkButton("320 kbps", null, BtnVariant.Soft, 96, T.Card);
-            _rb192 = MkButton("192 kbps", null, BtnVariant.Soft, 96, T.Card);
-            _rb128 = MkButton("128 kbps", null, BtnVariant.Soft, 96, T.Card);
-            FlatButton[] rbs = { _rb320, _rb192, _rb128 };
-            int[] vals = { 320, 192, 128 };
-            for (int i = 0; i < 3; i++)
+            Label lblVideo = MkLabel("Default video quality", T.H3, T.Text, T.Card);
+            lblVideo.Bounds = new Rectangle(18, 12, 300, 20);
+            cardDefaults.Controls.Add(lblVideo);
+
+            Label lblVideoHint = MkLabel("preselected after every fetch", T.Tiny, T.Faint, T.Card);
+            lblVideoHint.TextAlign = ContentAlignment.MiddleRight;
+            lblVideoHint.Bounds = new Rectangle(540, 13, 200, 18);
+            cardDefaults.Controls.Add(lblVideoHint);
+
+            _videoBtns = new FlatButton[_videoVals.Length];
+            for (int i = 0; i < _videoVals.Length; i++)
             {
-                FlatButton b = rbs[i];
-                int v = vals[i];
+                string v = _videoVals[i];
+                FlatButton b = MkButton(i == 0 ? "Best" : v + "p", null, BtnVariant.Soft, 92, T.Card);
                 b.Height = 30;
                 b.Font = T.SmallB;
-                b.Top = 98;
-                b.Left = 18 + i * 104;
+                b.Left = 18 + i * 100;
+                b.Top = 38;
+                b.Click += delegate
+                {
+                    Store.Current.VideoQuality = v;
+                    Store.SaveSettings();
+                    UpdateSettingPills();
+                };
+                cardDefaults.Controls.Add(b);
+                _videoBtns[i] = b;
+            }
+
+            Label lblAudio = MkLabel("Default MP3 bitrate", T.H3, T.Text, T.Card);
+            lblAudio.Bounds = new Rectangle(18, 78, 300, 20);
+            cardDefaults.Controls.Add(lblAudio);
+
+            Label lblAudioHint = MkLabel("used when you pick an MP3 format", T.Tiny, T.Faint, T.Card);
+            lblAudioHint.TextAlign = ContentAlignment.MiddleRight;
+            lblAudioHint.Bounds = new Rectangle(540, 79, 200, 18);
+            cardDefaults.Controls.Add(lblAudioHint);
+
+            _audioBtns = new FlatButton[_audioVals.Length];
+            for (int i = 0; i < _audioVals.Length; i++)
+            {
+                int v = _audioVals[i];
+                FlatButton b = MkButton(v + " kbps", null, BtnVariant.Soft, 100, T.Card);
+                b.Height = 30;
+                b.Font = T.SmallB;
+                b.Left = 18 + i * 108;
+                b.Top = 104;
                 b.Click += delegate
                 {
                     Store.Current.AudioBitrate = v;
                     Store.SaveSettings();
-                    UpdateBitrateButtons();
+                    UpdateSettingPills();
                 };
-                card.Controls.Add(b);
+                cardDefaults.Controls.Add(b);
+                _audioBtns[i] = b;
             }
 
+            // --- cookies ---
             RoundedPanel card2 = new RoundedPanel();
             card2.Fill = T.Card;
             card2.Radius = 12;
-            card2.Bounds = new Rectangle(0, 226, 700, 148);
+            card2.Bounds = new Rectangle(0, 344, 760, 108);
             _pageSettings.Controls.Add(card2);
 
             Label lbl3 = MkLabel("Cookies", T.H3, T.Text, T.Card);
-            lbl3.Bounds = new Rectangle(18, 14, 300, 20);
+            lbl3.Bounds = new Rectangle(18, 12, 300, 20);
             card2.Controls.Add(lbl3);
 
             _lblCookies = MkLabel("", T.Small, T.Dim, T.Card);
-            _lblCookies.Bounds = new Rectangle(18, 40, 660, 54);
+            _lblCookies.Bounds = new Rectangle(18, 38, 700, 62);
             card2.Controls.Add(_lblCookies);
 
-            _btnClearHistory2 = MkButton("Clear history", null, BtnVariant.Ghost, 118, T.Card);
-            _btnClearHistory2.Height = 30;
-            _btnClearHistory2.Click += delegate { ClearHistory(); };
-
+            // --- history ---
             RoundedPanel card3 = new RoundedPanel();
             card3.Fill = T.Card;
             card3.Radius = 12;
-            card3.Bounds = new Rectangle(0, 396, 700, 92);
+            card3.Bounds = new Rectangle(0, 464, 760, 80);
             _pageSettings.Controls.Add(card3);
 
             Label lbl4 = MkLabel("History", T.H3, T.Text, T.Card);
@@ -1043,36 +1145,44 @@ namespace MpcGrabber
             card3.Controls.Add(lbl4);
 
             Label lbl5 = MkLabel("Removes the download list only \u2014 the files stay on disk.", T.Small, T.Dim, T.Card);
-            lbl5.Bounds = new Rectangle(18, 38, 460, 18);
+            lbl5.Bounds = new Rectangle(18, 36, 460, 18);
             card3.Controls.Add(lbl5);
 
-            _btnClearHistory2.Left = 700 - 136;
-            _btnClearHistory2.Top = 31;
+            _btnClearHistory2 = MkButton("Clear history", null, BtnVariant.Ghost, 118, T.Card);
+            _btnClearHistory2.Height = 30;
+            _btnClearHistory2.Top = 25;
+            _btnClearHistory2.Click += delegate { ClearHistory(); };
             card3.Controls.Add(_btnClearHistory2);
 
             Label about = MkLabel("", T.Small, T.Faint, T.Bg);
             about.Name = "about";
-            about.Bounds = new Rectangle(4, 508, 700, 60);
+            about.Bounds = new Rectangle(4, 556, 760, 50);
             _pageSettings.Controls.Add(about);
 
             _pageSettings.Resize += delegate
             {
-                card.Width = Math.Min(760, _pageSettings.ClientSize.Width);
-                card2.Width = card.Width;
-                card3.Width = card.Width;
-                _btnSettChange.Left = card.Width - 110;
-                _btnSettOpenFolder.Left = card.Width - 110 - 140;
-                _btnClearHistory2.Left = card3.Width - 136;
+                int w = Math.Min(760, _pageSettings.ClientSize.Width);
+                card.Width = w;
+                cardDefaults.Width = w;
+                card2.Width = w;
+                card3.Width = w;
+                _lblSettFolder.Width = Math.Max(200, w - 280);
+                _lblCookies.Width = Math.Max(200, w - 36);
+                lblVideoHint.Left = w - 220;
+                lblAudioHint.Left = w - 220;
+                _btnSettChange.Left = w - 108;
+                _btnSettOpenFolder.Left = w - 108 - 140;
+                _btnClearHistory2.Left = w - 136;
                 about.Width = _pageSettings.ClientSize.Width;
             };
         }
 
-        private void UpdateBitrateButtons()
+        private void UpdateSettingPills()
         {
-            FlatButton[] rbs = { _rb320, _rb192, _rb128 };
-            int[] vals = { 320, 192, 128 };
-            for (int i = 0; i < 3; i++)
-                rbs[i].Variant = Store.Current.AudioBitrate == vals[i] ? BtnVariant.Primary : BtnVariant.Soft;
+            for (int i = 0; i < _videoBtns.Length; i++)
+                _videoBtns[i].Variant = Store.Current.VideoQuality == _videoVals[i] ? BtnVariant.Primary : BtnVariant.Soft;
+            for (int i = 0; i < _audioBtns.Length; i++)
+                _audioBtns[i].Variant = Store.Current.AudioBitrate == _audioVals[i] ? BtnVariant.Primary : BtnVariant.Soft;
         }
 
         private void RefreshSettings()
@@ -1081,20 +1191,20 @@ namespace MpcGrabber
             string cookies = YtDlp.FindCookies();
             if (cookies != null)
             {
-                _lblCookies.Text = "Using " + Path.GetFileName(cookies) + "\n" + cookies + "\nEdit or replace that file to update your login cookies.";
+                _lblCookies.Text = "Using " + Path.GetFileName(cookies) + "\r\n" + cookies + "\r\nEdit or replace that file to update your login cookies.";
                 _lblCookies.ForeColor = T.Dim;
             }
             else
             {
-                _lblCookies.Text = "No cookies file found next to the .exe.\nCreate a cookies.txt (Netscape format) there if a video needs you to be signed in.";
+                _lblCookies.Text = "No cookies file found next to the .exe.\r\nCreate a cookies.txt (Netscape format) there if a video needs you to be signed in.";
                 _lblCookies.ForeColor = T.Warn;
             }
-            UpdateBitrateButtons();
+            UpdateSettingPills();
             Control[] found = _pageSettings.Controls.Find("about", true);
             if (found.Length > 0)
             {
                 found[0].Text = "yt-dlp " + _ytVersion + (YtDlp.HasFfmpeg ? "  \u00B7  ffmpeg found" : "  \u00B7  ffmpeg NOT found") +
-                                "\nHistory and settings live beside this .exe (portable \u2014 no registry, no AppData).";
+                                "\r\nHistory and settings live beside this .exe (portable \u2014 no registry, no AppData).";
             }
         }
 

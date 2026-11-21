@@ -7,24 +7,28 @@ namespace MpcGrabber
 {
     internal static class T
     {
-        public static readonly Color Bg = Color.FromArgb(14, 16, 20);
-        public static readonly Color Sidebar = Color.FromArgb(10, 12, 16);
-        public static readonly Color Card = Color.FromArgb(22, 26, 33);
-        public static readonly Color Card2 = Color.FromArgb(18, 21, 27);
-        public static readonly Color Hover = Color.FromArgb(27, 32, 41);
-        public static readonly Color Press = Color.FromArgb(32, 38, 49);
-        public static readonly Color Border = Color.FromArgb(36, 42, 55);
-        public static readonly Color BorderSoft = Color.FromArgb(28, 34, 46);
-        public static readonly Color Text = Color.FromArgb(233, 236, 242);
-        public static readonly Color Dim = Color.FromArgb(154, 163, 181);
-        public static readonly Color Faint = Color.FromArgb(106, 115, 134);
-        public static readonly Color Accent = Color.FromArgb(91, 124, 250);
-        public static readonly Color AccentHi = Color.FromArgb(114, 143, 255);
-        public static readonly Color AccentLo = Color.FromArgb(72, 100, 220);
-        public static readonly Color AccentTint = Color.FromArgb(28, 38, 68);
-        public static readonly Color Success = Color.FromArgb(53, 208, 127);
-        public static readonly Color Danger = Color.FromArgb(242, 85, 90);
-        public static readonly Color Warn = Color.FromArgb(240, 169, 59);
+        // terminal palette: black / green / white
+        public static readonly Color Bg = Color.FromArgb(0, 0, 0);
+        public static readonly Color Sidebar = Color.FromArgb(0, 0, 0);
+        public static readonly Color Card = Color.FromArgb(8, 12, 8);
+        public static readonly Color Card2 = Color.FromArgb(12, 17, 12);
+        public static readonly Color Hover = Color.FromArgb(15, 26, 15);
+        public static readonly Color Press = Color.FromArgb(22, 48, 26);
+        public static readonly Color Border = Color.FromArgb(29, 59, 38);
+        public static readonly Color BorderSoft = Color.FromArgb(20, 42, 26);
+        public static readonly Color Text = Color.FromArgb(255, 255, 255);
+        public static readonly Color Dim = Color.FromArgb(169, 196, 173);
+        public static readonly Color Faint = Color.FromArgb(95, 122, 101);
+        public static readonly Color Accent = Color.FromArgb(61, 255, 136);
+        public static readonly Color AccentHi = Color.FromArgb(125, 255, 176);
+        public static readonly Color AccentLo = Color.FromArgb(38, 204, 102);
+        public static readonly Color AccentTint = Color.FromArgb(8, 34, 15);
+        public static readonly Color Success = Color.FromArgb(61, 255, 136);
+        public static readonly Color Danger = Color.FromArgb(255, 92, 92);
+        public static readonly Color Warn = Color.FromArgb(255, 201, 77);
+        public static readonly Color ButtonBorder = Color.FromArgb(44, 122, 74);
+        public static readonly Color ButtonBorderHi = Color.FromArgb(61, 255, 136);
+        public static readonly Color OnAccent = Color.FromArgb(2, 20, 8);
 
         public static readonly Font H1 = new Font("Segoe UI", 20f, FontStyle.Bold);
         public static readonly Font H2 = new Font("Segoe UI", 13f, FontStyle.Bold);

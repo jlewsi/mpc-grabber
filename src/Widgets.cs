@@ -44,7 +44,12 @@ namespace MpcGrabber
 
     internal class FlatButton : DcControl
     {
-        public BtnVariant Variant = BtnVariant.Ghost;
+        private BtnVariant _variant = BtnVariant.Ghost;
+        public BtnVariant Variant
+        {
+            get { return _variant; }
+            set { if (_variant != value) { _variant = value; Invalidate(); } }
+        }
         public string Glyph = null;
         public int Radius = 10;
         public bool LeftAlign = false;
@@ -74,8 +79,8 @@ namespace MpcGrabber
             switch (Variant)
             {
                 case BtnVariant.Primary:
-                    bg = !Enabled ? T.Border : (_down ? T.AccentLo : (_hover ? T.AccentHi : T.Accent));
-                    fg = !Enabled ? T.Faint : Color.White;
+                    bg = !Enabled ? T.Card2 : (_down ? T.AccentLo : (_hover ? T.AccentHi : T.Accent));
+                    fg = !Enabled ? T.Faint : T.OnAccent;
                     break;
                 case BtnVariant.Soft:
                     bg = !Enabled ? T.Card2 : (_down ? T.Press : (_hover ? T.Hover : T.Card2));
@@ -83,7 +88,7 @@ namespace MpcGrabber
                     border = true;
                     break;
                 case BtnVariant.Danger:
-                    bg = _down ? Color.FromArgb(40, 20, 24) : (_hover ? Color.FromArgb(38, 18, 22) : Color.Transparent);
+                    bg = _down ? Color.FromArgb(40, 18, 18) : (_hover ? Color.FromArgb(38, 16, 16) : Color.Transparent);
                     fg = !Enabled ? T.Faint : T.Danger;
                     break;
                 case BtnVariant.IconGhost:
@@ -98,7 +103,7 @@ namespace MpcGrabber
             }
 
             if (bg.A > 0) T.FillRound(g, bg, r, Radius);
-            if (border) T.StrokeRound(g, _hover && Enabled ? T.Border : T.BorderSoft, r, Radius, 1f);
+            if (border) T.StrokeRound(g, (_hover && Enabled) ? T.ButtonBorderHi : T.ButtonBorder, r, Radius, 1.1f);
 
             Font gf = new Font("Segoe MDL2 Assets", GlyphSize);
             string text = Text == null ? "" : Text;

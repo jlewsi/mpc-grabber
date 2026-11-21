@@ -29,13 +29,15 @@ namespace MpcGrabber
             Invalidate();
         }
 
+        public void RefreshLayout() { Recalc(); Invalidate(); }
+
         private void Recalc()
         {
             if (Width <= 0) return;
             _cols = ColumnsFor(Width);
             _cardW = (Width - _gap * (_cols - 1)) / _cols;
             int rows = (Items.Count + _cols - 1) / _cols;
-            ContentHeight = rows * (_cardH + _gap);
+            ContentHeight = rows * (_cardH + _gap) - _gap;
         }
 
         public int HeightFor(int width)
@@ -225,6 +227,20 @@ namespace MpcGrabber
         public void Refresh2()
         {
             ContentHeight = Jobs.Count * RowH;
+            Invalidate();
+        }
+
+        public void EnsureVisible(int index)
+        {
+            if (index < 0 || index >= Jobs.Count || Height <= 0) return;
+            int top = index * RowH;
+            int bottom = top + RowH;
+            int viewTop = ScrollPos;
+            int viewBottom = ScrollPos + Height;
+            if (top < viewTop) ScrollPos = top;
+            else if (bottom > viewBottom) ScrollPos = bottom - Height + 6;
+            if (ScrollPos < 0) ScrollPos = 0;
+            if (ScrollPos > MaxScroll) ScrollPos = MaxScroll;
             Invalidate();
         }
 

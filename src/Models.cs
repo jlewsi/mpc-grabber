@@ -71,7 +71,8 @@ namespace MpcGrabber
     {
         public string DownloadFolder { get; set; }
         public int AudioBitrate { get; set; }
-        public Settings() { AudioBitrate = 320; }
+        public string VideoQuality { get; set; }
+        public Settings() { AudioBitrate = 320; VideoQuality = "best"; }
     }
 
     internal static class J
