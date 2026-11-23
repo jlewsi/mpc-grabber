@@ -6,6 +6,7 @@ using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
+using System.Windows.Forms;
 
 namespace MpcGrabber
 {
@@ -19,7 +20,7 @@ namespace MpcGrabber
 
     internal static class Updater
     {
-        private const string Repo = "jlewsi/mpc-grabber";
+        private const string Repo = "jlewsi/nomadtube";
         private const string Api = "https://api.github.com/repos/" + Repo;
 
         public static Version Current
@@ -83,7 +84,9 @@ namespace MpcGrabber
             {
                 Dictionary<string, object> a = J.AsDict(assets[i]);
                 if (a == null) continue;
-                if (string.Equals(J.Str(a, "name"), "MPCGrabber.exe", StringComparison.OrdinalIgnoreCase))
+                string an = J.Str(a, "name");
+                if (string.Equals(an, "NomadTube.exe", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(an, "MPCGrabber.exe", StringComparison.OrdinalIgnoreCase))
                 {
                     r.AssetUrl = J.Str(a, "browser_download_url");
                     break;
@@ -103,37 +106,39 @@ namespace MpcGrabber
             try
             {
                 if (r == null || string.IsNullOrEmpty(r.AssetUrl))
-                    throw new Exception("The release has no MPCGrabber.exe asset.");
+                    throw new Exception("The release has no application asset.");
 
                 string dir = AppDomain.CurrentDomain.BaseDirectory;
-                string staged = Path.Combine(dir, "MPCGrabber.update.exe");
+                string exeName = Path.GetFileName(Application.ExecutablePath);
+                string stagedName = exeName + ".update";
+                string staged = Path.Combine(dir, stagedName);
 
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
                 using (WebClient wc = new WebClient())
                 {
-                    wc.Headers[HttpRequestHeader.UserAgent] = "MPCGrabber/" + CurrentShort;
+                    wc.Headers[HttpRequestHeader.UserAgent] = "NomadTube/" + CurrentShort;
                     wc.DownloadFile(r.AssetUrl, staged);
                 }
 
-                string bat = Path.Combine(dir, "mpcgrabber-update.cmd");
+                string bat = Path.Combine(dir, "nomadtube-update.cmd");
                 string script =
                     "@echo off\r\n" +
                     "set n=0\r\n" +
                     "ping -n 3 127.0.0.1 >nul\r\n" +
                     ":loop\r\n" +
-                    "move /y \"%~dp0MPCGrabber.update.exe\" \"%~dp0MPCGrabber.exe\" >nul 2>&1\r\n" +
+                    "move /y \"%~dp0" + stagedName + "\" \"%~dp0" + exeName + "\" >nul 2>&1\r\n" +
                     "if not errorlevel 1 goto done\r\n" +
                     "set /a n+=1\r\n" +
                     "if %n% geq 90 goto fail\r\n" +
                     "ping -n 2 127.0.0.1 >nul\r\n" +
                     "goto loop\r\n" +
                     ":done\r\n" +
-                    "start \"\" \"%~dp0MPCGrabber.exe\"\r\n" +
-                    "del \"%~dp0mpcgrabber-update.cmd\"\r\n" +
+                    "start \"\" \"%~dp0" + exeName + "\"\r\n" +
+                    "del \"%~dp0nomadtube-update.cmd\"\r\n" +
                     "goto :eof\r\n" +
                     ":fail\r\n" +
-                    "del \"%~dp0MPCGrabber.update.exe\"\r\n" +
-                    "del \"%~dp0mpcgrabber-update.cmd\"\r\n";
+                    "del \"%~dp0" + stagedName + "\"\r\n" +
+                    "del \"%~dp0nomadtube-update.cmd\"\r\n";
                 File.WriteAllText(bat, script);
 
                 ProcessStartInfo psi = new ProcessStartInfo("cmd.exe", "/c \"" + bat + "\"");
@@ -147,5 +152,6 @@ namespace MpcGrabber
                 error = ex.Message;
             }
         }
+
     }
 }

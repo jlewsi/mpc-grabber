@@ -3,6 +3,13 @@ bin/
 obj/
 
 # Application state (portable, per-user)
+nomadtube.settings.json
+nomadtube.history.json
+nomadtube.channels.json
+nomadtube.log
+nomadtube-update.cmd
+MPCGrabber.exe
+NomadTube.exe
 mpcgrabber.settings.json
 mpcgrabber.history.json
 mpcgrabber.log

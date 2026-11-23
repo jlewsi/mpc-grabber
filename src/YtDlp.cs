@@ -191,7 +191,7 @@ namespace MpcGrabber
         {
             try
             {
-                File.AppendAllText(Path.Combine(Dir, "mpcgrabber.log"),
+                File.AppendAllText(Path.Combine(Dir, "nomadtube.log"),
                     DateTime.Now.ToString("s") + "  " + message + Environment.NewLine);
             }
             catch { }

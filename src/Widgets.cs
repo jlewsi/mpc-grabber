@@ -75,12 +75,14 @@ namespace MpcGrabber
             g.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle r = new Rectangle(0, 0, Width, Height);
 
-            Color bg; Color fg; bool border = false;
+            Color bg; Color fg; bool border = false; Color bc = T.ButtonBorder;
             switch (Variant)
             {
                 case BtnVariant.Primary:
-                    bg = !Enabled ? T.Card2 : (_down ? T.AccentLo : (_hover ? T.AccentHi : T.Accent));
-                    fg = !Enabled ? T.Faint : T.OnAccent;
+                    bg = !Enabled ? T.Card2 : (_down ? Color.FromArgb(22, 18, 5) : (_hover ? Color.FromArgb(16, 13, 4) : T.Bg));
+                    fg = !Enabled ? T.Faint : (_hover ? T.GoldHi : T.Gold);
+                    border = true;
+                    bc = !Enabled ? T.Border : (_hover ? T.GoldHi : T.Gold);
                     break;
                 case BtnVariant.Soft:
                     bg = !Enabled ? T.Card2 : (_down ? T.Press : (_hover ? T.Hover : T.Card2));
@@ -103,7 +105,8 @@ namespace MpcGrabber
             }
 
             if (bg.A > 0) T.FillRound(g, bg, r, Radius);
-            if (border) T.StrokeRound(g, (_hover && Enabled) ? T.ButtonBorderHi : T.ButtonBorder, r, Radius, 1.1f);
+            if (border && Variant != BtnVariant.Primary) T.StrokeRound(g, (_hover && Enabled) ? T.ButtonBorderHi : T.ButtonBorder, r, Radius, 1.1f);
+            else if (border) T.StrokeRound(g, bc, r, Radius, 1.4f);
 
             Font gf = new Font("Segoe MDL2 Assets", GlyphSize);
             string text = Text == null ? "" : Text;

@@ -1,9 +1,9 @@
 using System.Reflection;
 
-[assembly: AssemblyTitle("MPC Grabber")]
+[assembly: AssemblyTitle("NomadTube")]
 [assembly: AssemblyDescription("Portable yt-dlp front end")]
-[assembly: AssemblyProduct("MPC Grabber")]
+[assembly: AssemblyProduct("NomadTube")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyCopyright("")]
-[assembly: AssemblyVersion("1.4.0.0")]
-[assembly: AssemblyFileVersion("1.4.0.0")]
+[assembly: AssemblyVersion("2.0.0.0")]
+[assembly: AssemblyFileVersion("2.0.0.0")]

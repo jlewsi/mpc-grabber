@@ -5,12 +5,12 @@ $csc  = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path $csc)) { throw "csc.exe not found at $csc" }
 
 # make sure a running instance is not locking the output file
-Get-Process MPCGrabber -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process NomadTube,MPCGrabber -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 400
 
 $outDir = Join-Path $root 'bin'
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-$exe = Join-Path $outDir 'MPCGrabber.exe'
+$exe = Join-Path $outDir 'NomadTube.exe'
 
 $sources = @(Get-ChildItem (Join-Path $root 'src') -Filter *.cs | ForEach-Object { $_.FullName })
 if ($sources.Count -eq 0) { throw 'no sources' }
@@ -26,6 +26,8 @@ if (-not $NoIcon) {
   $ico = Join-Path $root 'app.ico'
   if (Test-Path $ico) { $args += "/win32icon:$ico" }
 }
+$banner = Join-Path $root 'assets\banner.png'
+if (Test-Path $banner) { $args += "/resource:$banner,MPCGrabber.banner.png" }
 $args += $sources
 
 & $csc @args

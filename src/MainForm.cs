@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -106,35 +107,41 @@ namespace MpcGrabber
 
     internal class LogoBox : DcControl
     {
+        private static Image _banner;
+
         public LogoBox() { BackColor = T.Sidebar; }
+
+        private static Image Banner()
+        {
+            if (_banner == null)
+            {
+                try
+                {
+                    using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("MPCGrabber.banner.png"))
+                        if (s != null) _banner = Image.FromStream(s);
+                }
+                catch { }
+            }
+            return _banner;
+        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-
-            Rectangle icon = new Rectangle(18, 20, 38, 38);
-            using (GraphicsPath p = T.Round(icon, 11))
-            using (LinearGradientBrush lb = new LinearGradientBrush(icon, Color.FromArgb(112, 138, 255), Color.FromArgb(96, 64, 220), LinearGradientMode.ForwardDiagonal))
-                g.FillPath(lb, p);
-
-            using (SolidBrush b = new SolidBrush(Color.White))
+            Image b = Banner();
+            if (b == null)
             {
-                RectangleF shaft = new RectangleF(icon.X + 16.5f, icon.Y + 9, 5, 12);
-                using (GraphicsPath sp = T.Round(Rectangle.Round(shaft), 2)) g.FillPath(b, sp);
-                g.FillPolygon(b, new PointF[] {
-                    new PointF(icon.X + 12, icon.Y + 20),
-                    new PointF(icon.X + 26, icon.Y + 20),
-                    new PointF(icon.X + 19, icon.Y + 28) });
-                using (GraphicsPath tp = T.Round(new Rectangle(icon.X + 12, icon.Y + 30, 14, 2), 1)) g.FillPath(b, tp);
+                T.Draw(g, "NomadTube", T.H2, T.Text, new Rectangle(16, 18, Width - 32, 40),
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+                return;
             }
-
-            T.Draw(g, "MPC Grabber", T.BodyB, T.Text, new Rectangle(66, 22, 130, 20),
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
-            T.Draw(g, "yt-dlp front end", T.Tiny, T.Faint, new Rectangle(66, 42, 130, 16),
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+            int w = Math.Min(Width - 30, b.Width);
+            int h = (int)Math.Round(b.Height * (w / (double)b.Width));
+            g.DrawImage(b, new Rectangle((Width - w) / 2, (Height - h) / 2, w, h));
         }
     }
+
 
     internal partial class MainForm : Form
     {
@@ -207,7 +214,7 @@ namespace MpcGrabber
             if (args != null && args.Length > 2 && string.Equals(args[2], "--download", StringComparison.OrdinalIgnoreCase))
                 _autoDownload = true;
 
-            Text = "MPC Grabber";
+            Text = "NomadTube";
             AutoScaleMode = AutoScaleMode.None;
             BackColor = T.Bg;
             ForeColor = T.Text;
@@ -1833,3 +1840,4 @@ namespace MpcGrabber
         }
     }
 }
+

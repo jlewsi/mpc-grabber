@@ -29,6 +29,9 @@ namespace MpcGrabber
         public static readonly Color ButtonBorder = Color.FromArgb(44, 122, 74);
         public static readonly Color ButtonBorderHi = Color.FromArgb(61, 255, 136);
         public static readonly Color OnAccent = Color.FromArgb(2, 20, 8);
+        public static readonly Color Gold = Color.FromArgb(224, 184, 76);
+        public static readonly Color GoldHi = Color.FromArgb(245, 216, 119);
+        public static readonly Color GoldTint = Color.FromArgb(30, 24, 6);
         public static readonly Color Blue = Color.FromArgb(77, 141, 255);
         public static readonly Color BlueTint = Color.FromArgb(10, 22, 44);
         public static readonly Color Purple = Color.FromArgb(186, 115, 255);

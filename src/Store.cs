@@ -16,17 +16,38 @@ namespace MpcGrabber
         public static List<HistoryEntry> History = new List<HistoryEntry>();
         public static List<SavedChannel> Channels = new List<SavedChannel>();
 
-        public static string SettingsPath { get { return Path.Combine(Dir, "mpcgrabber.settings.json"); } }
-        public static string HistoryPath { get { return Path.Combine(Dir, "mpcgrabber.history.json"); } }
-        public static string ChannelsPath { get { return Path.Combine(Dir, "mpcgrabber.channels.json"); } }
+        public static string SettingsPath { get { return Path.Combine(Dir, "nomadtube.settings.json"); } }
+        public static string HistoryPath { get { return Path.Combine(Dir, "nomadtube.history.json"); } }
+        public static string ChannelsPath { get { return Path.Combine(Dir, "nomadtube.channels.json"); } }
 
         public static string DefaultDownloads
         {
             get { return Path.Combine(Dir, "Downloads"); }
         }
 
+        private static void MigrateFromOldNames()
+        {
+            try
+            {
+                string[][] pairs = new string[][]
+                {
+                    new string[] { "nomadtube.settings.json", "mpcgrabber.settings.json" },
+                    new string[] { "nomadtube.history.json", "mpcgrabber.history.json" },
+                    new string[] { "nomadtube.channels.json", "mpcgrabber.channels.json" }
+                };
+                for (int k = 0; k < pairs.Length; k++)
+                {
+                    string newPath = Path.Combine(Dir, pairs[k][0]);
+                    string oldPath = Path.Combine(Dir, pairs[k][1]);
+                    if (!File.Exists(newPath) && File.Exists(oldPath)) File.Copy(oldPath, newPath);
+                }
+            }
+            catch { }
+        }
+
         public static void Load()
         {
+            MigrateFromOldNames();
             try
             {
                 if (File.Exists(SettingsPath))
