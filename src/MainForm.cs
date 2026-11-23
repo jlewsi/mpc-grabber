@@ -726,9 +726,16 @@ namespace MpcGrabber
             if (string.IsNullOrWhiteSpace(url)) return;
             try
             {
+                // YouTube hands out .webp posters, which GDI+ cannot decode: ask for the .jpg twin
+                string u = url;
+                if (u.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
+                {
+                    u = u.Substring(0, u.Length - 5) + ".jpg";
+                    u = u.Replace("/vi_webp/", "/vi/");
+                }
                 WebClient wc = new WebClient();
                 wc.Headers[HttpRequestHeader.UserAgent] = "Mozilla/5.0";
-                byte[] data = await wc.DownloadDataTaskAsync(url);
+                byte[] data = await wc.DownloadDataTaskAsync(u);
                 using (MemoryStream ms = new MemoryStream(data))
                 {
                     Image img = Image.FromStream(ms);

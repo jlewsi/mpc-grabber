@@ -5,7 +5,10 @@ quality (or MP3), download. Dark UI, playlist support, download history, no inst
 
 **[Download MPCGrabber.exe](https://github.com/jlewsi/mpc-grabber/releases/latest)** - single file, no installer.
 
-![MPC Grabber](docs/screenshot-download.png)
+| | | |
+|:--:|:--:|:--:|
+| ![Download](docs/screenshot-download.png)<br>**Download** | ![Playlist](docs/screenshot-playlist.png)<br>**Playlist** | ![Channels](docs/screenshot-channels.png)<br>**Channels** |
+| ![Queue](docs/screenshot-queue.png)<br>**Queue** | ![History](docs/screenshot-history.png)<br>**History** | ![Settings](docs/screenshot-settings.png)<br>**Settings** |
 
 ---
 
@@ -49,7 +52,8 @@ same folder, so the whole folder is the app. Deleting the folder removes every t
   preselected every time you fetch a link.
 - **Channels** — load any channel by URL or `@handle`, filter to the last 24 hours / 7 days / 30 days, and pick
   from its uploads. Videos come first, then Shorts (badged `SHORT`). Channels are saved on the left with a
-  per-channel download count, and anything already downloaded is marked and starts unchecked.- **History** — open file, reveal in Explorer, re-download, delete, clear. Files on disk are never
+  per-channel download count, and anything already downloaded is marked and starts unchecked.
+- **History** — open file, reveal in Explorer, re-download, delete, clear. Files on disk are never
   deleted by clearing history.
 - **Settings** — download folder (default `Downloads` next to the exe), default video quality,
   default MP3 bitrate, cookie status, yt-dlp/ffmpeg detection.
