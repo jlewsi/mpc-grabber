@@ -388,7 +388,8 @@ namespace MpcGrabber
                 int textW = r.Width - 14 - 56 - 190;
                 T.Draw(g, h.Title, T.Body, T.Text, new Rectangle(r.X + 66, r.Y + 12, textW, 20),
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
-                string meta = (h.Quality ?? "") + "  \u00B7  " + T.FormatBytes(h.SizeBytes) + "  \u00B7  " + (h.FinishedAt ?? "");
+                string chan = h.Channel == null ? "" : h.Channel;
+                string meta = (chan.Length > 0 ? chan + "  \u00B7  " : "") + (h.Quality ?? "") + "  \u00B7  " + T.FormatBytes(h.SizeBytes) + "  \u00B7  " + (h.FinishedAt ?? "");
                 T.Draw(g, meta, T.Small, T.Dim, new Rectangle(r.X + 66, r.Y + 34, textW, 18),
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
 

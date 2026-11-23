@@ -47,7 +47,9 @@ same folder, so the whole folder is the app. Deleting the folder removes every t
   *Clear finished* button. It auto-scrolls to keep the file currently downloading in view.
 - **Defaults** — set a default video quality and a default MP3 bitrate; the matching format is
   preselected every time you fetch a link.
-- **History** — open file, reveal in Explorer, re-download, delete, clear. Files on disk are never
+- **Channels** — load any channel by URL or `@handle`, filter to the last 24 hours / 7 days / 30 days, and pick
+  from its uploads. Videos come first, then Shorts (badged `SHORT`). Channels are saved on the left with a
+  per-channel download count, and anything already downloaded is marked and starts unchecked.- **History** — open file, reveal in Explorer, re-download, delete, clear. Files on disk are never
   deleted by clearing history.
 - **Settings** — download folder (default `Downloads` next to the exe), default video quality,
   default MP3 bitrate, cookie status, yt-dlp/ffmpeg detection.
@@ -56,6 +58,25 @@ same folder, so the whole folder is the app. Deleting the folder removes every t
 - Drag-and-drop URLs, dark title bar, single ~80 KB executable.
 
 ![Settings](docs/screenshot-settings.png)
+
+## Channels
+
+![Channels](docs/screenshot-channels.png)
+
+Paste a channel URL (`https://www.youtube.com/@handle`, `/channel/UC…`, `/c/name`) or just `@handle`, pick a
+timeframe — **Last 24 hr**, **7 days** or **30 days** — and press **Load channel**.
+
+- Uploads are listed newest first; **Shorts are listed separately underneath** and badged `SHORT`.
+- Live streams, premieres and upcoming streams are skipped.
+- YouTube's Shorts tab exposes no publish dates, so the newest **12 shorts** are always listed and shown as
+  `recent`. Video dates are approximate to the day (that is what the channel listing provides).
+- Save a channel by loading it — it stays in **Saved channels** with how many files you have downloaded from it.
+  Items already downloaded (matching that channel's history) are dimmed, ticked with a green check and left
+  unchecked, so re-running a check never downloads the same video twice.
+- Channel downloads are named **`Channel - Title - MMDDYY-HHMM.ext`** (the time part is dropped when YouTube
+  does not expose one) and are recorded in History with the channel name.
+- CLI: `MPCGrabber.exe --channel "@handle"` opens straight to that channel. Downloads use your default video
+  quality from Settings.
 
 ## Keyboard
 

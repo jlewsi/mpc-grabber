@@ -54,6 +54,9 @@ namespace MpcGrabber
         public string OutputPath = "";
         public string Error = "";
         public DateTime StartedAt = DateTime.Now;
+        public string ChannelName = "";
+        public string ChannelId = "";
+        public string OutputTemplate = "";
     }
 
     internal class HistoryEntry
@@ -65,6 +68,8 @@ namespace MpcGrabber
         public string Quality { get; set; }
         public string FinishedAt { get; set; }  // ISO-ish local string
         public long SizeBytes { get; set; }
+        public string Channel { get; set; }
+        public string ChannelId { get; set; }
     }
 
     internal class Settings
@@ -73,6 +78,37 @@ namespace MpcGrabber
         public int AudioBitrate { get; set; }
         public string VideoQuality { get; set; }
         public Settings() { AudioBitrate = 320; VideoQuality = "best"; }
+    }
+
+internal class ChannelVideo
+    {
+        public string Id = "";
+        public string Url = "";
+        public string Title = "";
+        public double Duration = 0;
+        public long Timestamp = 0;
+        public bool IsShort = false;
+        public bool HasTime = false;
+        public bool Checked = true;
+        public bool Downloaded = false;
+    }
+
+    internal class ChannelInfo
+    {
+        public string Id = "";
+        public string Name = "";
+        public string Url = "";
+        public List<ChannelVideo> Videos = new List<ChannelVideo>();
+        public int ShortCount = 0;
+        public int VideoCount = 0;
+    }
+
+    internal class SavedChannel
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Url { get; set; }
+        public string LastChecked { get; set; }
     }
 
     internal static class J

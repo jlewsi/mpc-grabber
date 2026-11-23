@@ -256,6 +256,139 @@ namespace MpcGrabber
             return info;
         }
 
+        public static string NormalizeChannelUrl(string input)
+        {
+            string s = (input == null ? "" : input.Trim());
+            if (s.Length == 0) return "";
+            if (!s.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                if (s.StartsWith("@")) s = "https://www.youtube.com/" + s;
+                else if (s.StartsWith("youtube.com/", StringComparison.OrdinalIgnoreCase) || s.StartsWith("www.youtube.com/", StringComparison.OrdinalIgnoreCase))
+                    s = "https://" + s;
+                else s = "https://www.youtube.com/@" + s.TrimStart('/');
+            }
+            s = s.TrimEnd('/');
+            string[] tabs = { "/videos", "/shorts", "/streams", "/featured", "/playlists" };
+            for (int i = 0; i < tabs.Length; i++)
+                if (s.EndsWith(tabs[i], StringComparison.OrdinalIgnoreCase)) { s = s.Substring(0, s.Length - tabs[i].Length); break; }
+            return s;
+        }
+
+        private static long NowUnix()
+        {
+            return (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+        }
+
+        private static async Task<Dictionary<string, object>> FetchTabAsync(string url, int limit)
+        {
+            string args = "-J --flat-playlist --playlist-end " + limit +
+                          " --extractor-args " + Quote("youtubetab:approximate_date") + " " +
+                          CommonArgs() + " " + Quote(url);
+            ProcResult r = await RunAsync(args, null);
+            if (r.Code != 0 || string.IsNullOrWhiteSpace(r.Out))
+            {
+                string se = r.Err.Trim();
+                if (se.Length == 0) se = r.Out.Trim();
+                if (se.Length > 400) se = se.Substring(se.Length - 400);
+                throw new Exception(se.Length > 0 ? se : "yt-dlp could not read that channel.");
+            }
+            JavaScriptSerializer js = new JavaScriptSerializer();
+            js.MaxJsonLength = int.MaxValue;
+            js.RecursionLimit = 200;
+            return js.Deserialize<Dictionary<string, object>>(r.Out);
+        }
+
+        public static async Task<ChannelInfo> FetchChannelAsync(string input, int days)
+        {
+            string baseUrl = NormalizeChannelUrl(input);
+            if (baseUrl.Length == 0) throw new Exception("Enter a channel URL or @handle.");
+
+            long cutoff = NowUnix() - (long)days * 86400L;
+            ChannelInfo info = new ChannelInfo();
+            info.Url = baseUrl;
+
+            Dictionary<string, object> main = await FetchTabAsync(baseUrl + "/videos", 300);
+            info.Id = J.Str(main, "channel_id");
+            if (info.Id.Length == 0) info.Id = J.Str(main, "id");
+            info.Name = J.Str(main, "channel");
+            if (info.Name.Length == 0) info.Name = J.Str(main, "uploader");
+            if (info.Name.Length == 0) info.Name = J.Str(main, "title");
+            AddChannelEntries(info, main, cutoff, false);
+
+            try
+            {
+                Dictionary<string, object> shorts = await FetchTabAsync(baseUrl + "/shorts", 200);
+                AddChannelEntries(info, shorts, cutoff, true);
+            }
+            catch { }
+
+            info.Videos.Sort(delegate(ChannelVideo a, ChannelVideo b)
+            {
+                if (a.IsShort != b.IsShort) return a.IsShort ? 1 : -1;
+                return b.Timestamp.CompareTo(a.Timestamp);
+            });
+            for (int i = 0; i < info.Videos.Count; i++)
+            {
+                if (info.Videos[i].IsShort) info.ShortCount++;
+                else info.VideoCount++;
+            }
+            return info;
+        }
+
+        private static void AddChannelEntries(ChannelInfo info, Dictionary<string, object> tab, long cutoff, bool shortsTab)
+        {
+            List<object> entries = J.Arr(tab, "entries");
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Dictionary<string, object> e = J.AsDict(entries[i]);
+                if (e == null) continue;
+
+                string live = J.Str(e, "live_status");
+                if (live == "is_live" || live == "is_upcoming" || live == "post_live") continue;
+
+                long ts = (long)J.Num(e, "timestamp");
+                bool hasTime = ts > 0 && (ts % 86400L) != 0L;
+                if (ts <= 0) ts = ParseUploadDate(J.Str(e, "upload_date"));
+                // the shorts tab carries no publish dates at all: keep the newest few, marked undated
+                bool undatedShort = shortsTab && ts <= 0;
+                if (!undatedShort && (ts <= 0 || ts < cutoff)) continue;
+                if (undatedShort)
+                {
+                    int undated = 0;
+                    for (int k = 0; k < info.Videos.Count; k++) if (info.Videos[k].Timestamp == 0) undated++;
+                    if (undated >= 12) continue;
+                }
+
+                string id = J.Str(e, "id");
+                if (id.Length == 0) continue;
+                bool dup = false;
+                for (int k = 0; k < info.Videos.Count; k++)
+                    if (info.Videos[k].Id == id) { dup = true; break; }
+                if (dup) continue;
+
+                ChannelVideo v = new ChannelVideo();
+                v.Id = id;
+                v.Title = J.Str(e, "title");
+                v.Duration = J.Num(e, "duration");
+                v.Timestamp = ts;
+                v.IsShort = shortsTab;
+                v.HasTime = hasTime;
+                v.Url = shortsTab ? "https://www.youtube.com/shorts/" + id : "https://www.youtube.com/watch?v=" + id;
+                if (v.Title.Length == 0) v.Title = id;
+                info.Videos.Add(v);
+            }
+        }
+
+        private static long ParseUploadDate(string d)
+        {
+            if (string.IsNullOrEmpty(d) || d.Length != 8) return 0;
+            int y, mo, da;
+            if (!int.TryParse(d.Substring(0, 4), out y)) return 0;
+            if (!int.TryParse(d.Substring(4, 2), out mo)) return 0;
+            if (!int.TryParse(d.Substring(6, 2), out da)) return 0;
+            try { return (long)(new DateTime(y, mo, da, 0, 0, 0, DateTimeKind.Utc) - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds; }
+            catch { return 0; }
+        }
         private static List<FormatOption> BuildFormats(Dictionary<string, object> d)
         {
             List<FormatOption> list = new List<FormatOption>();

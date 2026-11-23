@@ -14,9 +14,11 @@ namespace MpcGrabber
 
         public static Settings Current = new Settings();
         public static List<HistoryEntry> History = new List<HistoryEntry>();
+        public static List<SavedChannel> Channels = new List<SavedChannel>();
 
         public static string SettingsPath { get { return Path.Combine(Dir, "mpcgrabber.settings.json"); } }
         public static string HistoryPath { get { return Path.Combine(Dir, "mpcgrabber.history.json"); } }
+        public static string ChannelsPath { get { return Path.Combine(Dir, "mpcgrabber.channels.json"); } }
 
         public static string DefaultDownloads
         {
@@ -51,6 +53,16 @@ namespace MpcGrabber
                 }
             }
             catch { History = new List<HistoryEntry>(); }
+
+            try
+            {
+                if (File.Exists(ChannelsPath))
+                {
+                    List<SavedChannel> ch = J.FromJson<List<SavedChannel>>(File.ReadAllText(ChannelsPath, Encoding.UTF8));
+                    if (ch != null) Channels = ch;
+                }
+            }
+            catch { Channels = new List<SavedChannel>(); }
         }
 
         public static bool IsKnownVideoQuality(string q)
@@ -78,6 +90,37 @@ namespace MpcGrabber
                 File.WriteAllText(HistoryPath, J.ToJson(History), Encoding.UTF8);
             }
             catch { }
+        }
+
+        public static void SaveChannels()
+        {
+            try { File.WriteAllText(ChannelsPath, J.ToJson(Channels), Encoding.UTF8); } catch { }
+        }
+
+        public static void UpsertChannel(string id, string name, string url)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            SavedChannel hit = null;
+            for (int i = 0; i < Channels.Count; i++)
+                if (string.Equals(Channels[i].Id, id, StringComparison.OrdinalIgnoreCase)) { hit = Channels[i]; break; }
+            if (hit == null)
+            {
+                hit = new SavedChannel();
+                Channels.Insert(0, hit);
+            }
+            hit.Id = id;
+            if (!string.IsNullOrEmpty(name)) hit.Name = name;
+            if (!string.IsNullOrEmpty(url)) hit.Url = url;
+            hit.LastChecked = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+            SaveChannels();
+        }
+
+        public static int CountDownloaded(string channelId)
+        {
+            int n = 0;
+            for (int i = 0; i < History.Count; i++)
+                if (string.Equals(History[i].ChannelId, channelId, StringComparison.OrdinalIgnoreCase)) n++;
+            return n;
         }
 
         public static void AddHistory(HistoryEntry e)

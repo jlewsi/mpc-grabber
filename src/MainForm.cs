@@ -143,7 +143,7 @@ namespace MpcGrabber
         private ToolTip _tip = new ToolTip();
         private bool _fetching;
 
-        private Panel _sidebar, _content, _pageDownload, _pageHistory, _pageSettings, _pageQueue;
+        private Panel _sidebar, _content, _pageDownload, _pageChannels, _pageHistory, _pageSettings, _pageQueue;
         private NavBar _nav;
         private Pill _cookiePill;
 
@@ -155,12 +155,24 @@ namespace MpcGrabber
         private bool _phActive = true;
         private readonly string _startupUrl = "";
         private bool _autoDownload;
+        private string _startupChannel = "";
         private FlatButton _btnPaste, _btnFetch, _btnDownload, _btnCancel, _btnFolder, _btnChange;
         private InfoCard _infoCard;
         private Label _lblQuality;
         private FormatGrid _grid;
         private Label _lblPlaylist, _lblStatus;
         private Label _lblQueueSummary;
+        private RoundedPanel _chanInput;
+        private bool _loadingChannel;
+        private TextBox _txtChannel;
+        private bool _chanPhActive = true;
+        private const string ChannelPlaceholder = "@handle or youtube.com/@handle";
+        private FlatButton _btnLoadChannel, _btnChan24, _btnChan7, _btnChan30, _btnChanDownload, _btnChanAll, _btnChanNone;
+        private ChannelPicker _chanPicker;
+        private ChannelVideoList _chanList;
+        private Label _lblChanHeader, _lblChanSaved, _lblChanHint;
+        private ChannelInfo _channel;
+        private int _channelDays = 30;
         private FlatButton _btnQueueCancel, _btnQueueClear;
         private FlatButton _btnAll, _btnNone;
         private EntryList _entries;
@@ -205,6 +217,7 @@ namespace MpcGrabber
             BuildHistoryPage();
             BuildSettingsPage();
             BuildQueuePage();
+            BuildChannelsPage();
 
             _svc.Changed += ServiceChanged;
             _svc.JobCompleted += ServiceJobCompleted;
@@ -286,8 +299,9 @@ namespace MpcGrabber
             _sidebar.Controls.Add(logo);
 
             _nav = new NavBar();
-            _nav.Bounds = new Rectangle(0, 92, 212, 204);
+            _nav.Bounds = new Rectangle(0, 92, 212, 250);
             _nav.Items.Add(new NavItem("\uE896", "Download"));
+            _nav.Items.Add(new NavItem("\uE716", "Channels"));
             _nav.Items.Add(new NavItem("\uE81C", "History"));
             _nav.Items.Add(new NavItem("\uE713", "Settings"));
             _nav.Items.Add(new NavItem("\uE8FD", "Queue"));
@@ -334,23 +348,27 @@ namespace MpcGrabber
             _pageDownload = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg };
             _pageHistory = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Visible = false };
             _pageSettings = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Visible = false };
+            _pageChannels = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Visible = false };
             _pageQueue = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Visible = false };
             _content.Controls.Add(_pageDownload);
             _content.Controls.Add(_pageHistory);
             _content.Controls.Add(_pageSettings);
+            _content.Controls.Add(_pageChannels);
             _content.Controls.Add(_pageQueue);
         }
 
         private void ShowPage(int index)
         {
             _pageDownload.Visible = index == 0;
-            _pageHistory.Visible = index == 1;
-            _pageSettings.Visible = index == 2;
-            _pageQueue.Visible = index == 3;
+            _pageChannels.Visible = index == 1;
+            _pageHistory.Visible = index == 2;
+            _pageSettings.Visible = index == 3;
+            _pageQueue.Visible = index == 4;
             if (index == 0) LayoutDownloadPage();
-            if (index == 1) RefreshHistory();
-            if (index == 2) RefreshSettings();
-            if (index == 3) { LayoutQueuePage(); RefreshQueuePage(); }
+            if (index == 1) { LayoutChannelsPage(); _chanPicker.SetItems(Store.Channels); }
+            if (index == 2) RefreshHistory();
+            if (index == 3) RefreshSettings();
+            if (index == 4) { LayoutQueuePage(); RefreshQueuePage(); }
         }
 
         // ---------- helpers ----------
@@ -752,8 +770,8 @@ namespace MpcGrabber
             }
             if (count > 1)
             {
-                _nav.SelectedIndex = 3;
-                ShowPage(3);
+                _nav.SelectedIndex = 4;
+                ShowPage(4);
             }
             else
             {
@@ -1208,6 +1226,307 @@ namespace MpcGrabber
 
         private string _ytVersion = "";
 
+        // ---------- channels page ----------
+        private void BuildChannelsPage()
+        {
+            Label title = MkLabel("Channels", T.H1, T.Text, T.Bg);
+            title.Bounds = new Rectangle(0, 0, 400, 36);
+            _pageChannels.Controls.Add(title);
+
+            Label sub = MkLabel("Load a channel, pick a timeframe, tick what you want.", T.Small, T.Faint, T.Bg);
+            sub.Bounds = new Rectangle(2, 38, 700, 18);
+            _pageChannels.Controls.Add(sub);
+
+            _chanInput = new RoundedPanel();
+            _chanInput.Radius = 12;
+            _chanInput.Fill = T.Card;
+            _chanInput.BorderColor = T.Border;
+            _chanInput.BackColor = T.Bg;
+            _pageChannels.Controls.Add(_chanInput);
+
+            Label linkIcon = MkLabel("\uE716", T.Glyph, T.Faint, T.Card);
+            linkIcon.Bounds = new Rectangle(14, 0, 24, 50);
+            linkIcon.TextAlign = ContentAlignment.MiddleCenter;
+            _chanInput.Controls.Add(linkIcon);
+
+            _txtChannel = new TextBox();
+            _txtChannel.BorderStyle = BorderStyle.None;
+            _txtChannel.BackColor = T.Card;
+            _txtChannel.ForeColor = T.Faint;
+            _txtChannel.Font = new Font("Segoe UI", 10.5f);
+            _txtChannel.Text = ChannelPlaceholder;
+            _txtChannel.Bounds = new Rectangle(44, 15, 300, 22);
+            _txtChannel.GotFocus += delegate
+            {
+                if (_chanPhActive) { _chanPhActive = false; _txtChannel.Text = ""; _txtChannel.ForeColor = T.Text; }
+                _chanInput.BorderColor = T.Accent;
+                _chanInput.Invalidate();
+            };
+            _txtChannel.LostFocus += delegate
+            {
+                if (_txtChannel.Text.Trim().Length == 0)
+                {
+                    _chanPhActive = true;
+                    _txtChannel.Text = ChannelPlaceholder;
+                    _txtChannel.ForeColor = T.Faint;
+                }
+                _chanInput.BorderColor = T.Border;
+                _chanInput.Invalidate();
+            };
+            _txtChannel.KeyDown += delegate(object s, KeyEventArgs e)
+            {
+                if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; BtnLoadChannel_Click(null, null); }
+            };
+            _txtChannel.TextChanged += delegate
+            {
+                if (_chanPhActive && _txtChannel.Text != ChannelPlaceholder) { _chanPhActive = false; _txtChannel.ForeColor = T.Text; }
+            };
+            _chanInput.Controls.Add(_txtChannel);
+
+            _btnLoadChannel = MkButton("Load channel", null, BtnVariant.Primary, 124, T.Card);
+            _btnLoadChannel.Height = 34;
+            _btnLoadChannel.Click += BtnLoadChannel_Click;
+            _chanInput.Controls.Add(_btnLoadChannel);
+
+            _btnChan24 = MkButton("Last 24 hr", null, BtnVariant.Soft, 100, T.Bg);
+            _btnChan7 = MkButton("7 days", null, BtnVariant.Soft, 92, T.Bg);
+            _btnChan30 = MkButton("30 days", null, BtnVariant.Soft, 92, T.Bg);
+            FlatButton[] radios = { _btnChan24, _btnChan7, _btnChan30 };
+            int[] dayVals = { 1, 7, 30 };
+            for (int i = 0; i < 3; i++)
+            {
+                FlatButton b = radios[i];
+                int d = dayVals[i];
+                b.Height = 28;
+                b.Font = T.SmallB;
+                b.Top = 134;
+                b.Left = i * 104;
+                b.Click += delegate
+                {
+                    if (_channelDays == d) return;
+                    _channelDays = d;
+                    UpdateChannelRadios();
+                    if (_channel != null) BtnLoadChannel_Click(null, null);
+                    else UpdateChanCount();
+                };
+                _pageChannels.Controls.Add(b);
+            }
+
+            _lblChanHint = MkLabel("videos first, then shorts", T.Tiny, T.Faint, T.Bg);
+            _lblChanHint.Bounds = new Rectangle(320, 138, 520, 18);
+            _pageChannels.Controls.Add(_lblChanHint);
+
+            _lblChanSaved = MkLabel("SAVED CHANNELS", T.Tiny, T.Faint, T.Bg);
+            _pageChannels.Controls.Add(_lblChanSaved);
+
+            _chanPicker = new ChannelPicker();
+            _chanPicker.SelectionChanged += delegate
+            {
+                if (_chanPicker.SelectedIndex < 0 || _chanPicker.SelectedIndex >= Store.Channels.Count) return;
+                SavedChannel sc = Store.Channels[_chanPicker.SelectedIndex];
+                _chanPhActive = false;
+                _txtChannel.ForeColor = T.Text;
+                _txtChannel.Text = sc.Url;
+                BtnLoadChannel_Click(null, null);
+            };
+            _pageChannels.Controls.Add(_chanPicker);
+
+            _lblChanHeader = MkLabel("", T.BodyB, T.Dim, T.Bg);
+            _pageChannels.Controls.Add(_lblChanHeader);
+
+            _btnChanAll = MkButton("All", null, BtnVariant.Ghost, 54, T.Bg);
+            _btnChanAll.Height = 24;
+            _btnChanAll.Font = T.Small;
+            _btnChanAll.Click += delegate { _chanList.SetAll(true); UpdateChanCount(); };
+            _pageChannels.Controls.Add(_btnChanAll);
+
+            _btnChanNone = MkButton("None", null, BtnVariant.Ghost, 58, T.Bg);
+            _btnChanNone.Height = 24;
+            _btnChanNone.Font = T.Small;
+            _btnChanNone.Click += delegate { _chanList.SetAll(false); UpdateChanCount(); };
+            _pageChannels.Controls.Add(_btnChanNone);
+
+            _chanList = new ChannelVideoList();
+            _chanList.Changed += delegate { UpdateChanCount(); };
+            _pageChannels.Controls.Add(_chanList);
+
+            _btnChanDownload = MkButton("Download 0", "\uE896", BtnVariant.Primary, 170, T.Bg);
+            _btnChanDownload.Height = 40;
+            _btnChanDownload.Enabled = false;
+            _btnChanDownload.Click += BtnChanDownload_Click;
+            _pageChannels.Controls.Add(_btnChanDownload);
+
+            _pageChannels.Resize += delegate { LayoutChannelsPage(); };
+            UpdateChannelRadios();
+            UpdateChanCount();
+        }
+
+        private void LayoutChannelsPage()
+        {
+            if (_pageChannels == null || _chanInput == null) return;
+            int w = _pageChannels.ClientSize.Width;
+            int h = _pageChannels.ClientSize.Height;
+
+            _chanInput.Bounds = new Rectangle(0, 74, w - 134, 50);
+            _txtChannel.Width = Math.Max(120, w - 134 - 44 - 12 - 130 - 12);
+            _btnLoadChannel.Left = w - 124;
+            _btnLoadChannel.Top = 78;
+
+            int top = 178;
+            _lblChanSaved.Bounds = new Rectangle(0, top, 220, 18);
+            _chanPicker.Bounds = new Rectangle(0, top + 22, 218, Math.Max(80, h - top - 30));
+
+            int rx = 238;
+            int rw = Math.Max(200, w - rx);
+            _lblChanHeader.Bounds = new Rectangle(rx, top, rw - 132, 18);
+            _btnChanAll.Left = w - 122;
+            _btnChanAll.Top = top - 2;
+            _btnChanNone.Left = w - 62;
+            _btnChanNone.Top = top - 2;
+
+            _chanList.Bounds = new Rectangle(rx, top + 26, rw, Math.Max(120, h - top - 26 - 58));
+            _chanList.RefreshLayouts();
+
+            _btnChanDownload.Bounds = new Rectangle(w - 170, h - 48, 170, 40);
+        }
+
+        private void UpdateChannelRadios()
+        {
+            _btnChan24.Variant = _channelDays == 1 ? BtnVariant.Primary : BtnVariant.Soft;
+            _btnChan7.Variant = _channelDays == 7 ? BtnVariant.Primary : BtnVariant.Soft;
+            _btnChan30.Variant = _channelDays == 30 ? BtnVariant.Primary : BtnVariant.Soft;
+        }
+
+        private string GetChannelInput()
+        {
+            if (_chanPhActive) return "";
+            if (_txtChannel.Text == ChannelPlaceholder) return "";
+            return _txtChannel.Text.Trim();
+        }
+
+        private void UpdateChanCount()
+        {
+            if (_chanList == null || _btnChanDownload == null) return;
+            int n = _chanList.CheckedCount;
+            _btnChanDownload.Text = "Download " + n;
+            _btnChanDownload.Enabled = n > 0;
+            if (_channel == null)
+            {
+                _lblChanHeader.Text = "Load a channel to list recent uploads.";
+                return;
+            }
+            string tf = _channelDays == 1 ? "last 24 hours" : "last " + _channelDays + " days";
+            _lblChanHeader.Text = string.Format("{0}  \u00B7  {1} videos  \u00B7  {2} shorts  \u00B7  {3}",
+                _channel.Name, _channel.VideoCount, _channel.ShortCount, tf);
+        }
+
+        private async void BtnLoadChannel_Click(object sender, EventArgs e)
+        {
+            if (_loadingChannel) return;
+            string input = GetChannelInput();
+            if (input.Length == 0)
+            {
+                _lblChanHint.Text = "Paste a channel URL or @handle first.";
+                _lblChanHint.ForeColor = T.Warn;
+                return;
+            }
+            _loadingChannel = true;
+            _btnLoadChannel.Enabled = false;
+            _btnLoadChannel.Text = "Loading\u2026";
+            _lblChanHint.Text = "Reading channel\u2026";
+            _lblChanHint.ForeColor = T.Faint;
+            try
+            {
+                ChannelInfo info = await YtDlp.FetchChannelAsync(input, _channelDays);
+                _channel = info;
+                Store.UpsertChannel(info.Id, info.Name, info.Url);
+                MarkChannelDownloads(info);
+                _chanPicker.SetItems(Store.Channels);
+                _chanPicker.SelectChannel(info.Id);
+                _chanList.SetItems(info.Videos);
+                UpdateChanCount();
+                _lblChanHint.ForeColor = T.Faint;
+                _lblChanHint.Text = info.Videos.Count == 0
+                    ? "No uploads in this timeframe."
+                    : "Uses your default video quality from Settings.";
+            }
+            catch (Exception ex)
+            {
+                _channel = null;
+                _chanList.SetItems(new List<ChannelVideo>());
+                _lblChanHeader.Text = "Could not load that channel.";
+                _lblChanHint.Text = Shorten(ex.Message, 160);
+                _lblChanHint.ForeColor = T.Danger;
+                UpdateChanCount();
+            }
+            finally
+            {
+                _loadingChannel = false;
+                _btnLoadChannel.Enabled = true;
+                _btnLoadChannel.Text = "Load channel";
+                LayoutChannelsPage();
+            }
+        }
+
+        private void MarkChannelDownloads(ChannelInfo info)
+        {
+            for (int i = 0; i < info.Videos.Count; i++)
+            {
+                ChannelVideo v = info.Videos[i];
+                v.Downloaded = false;
+                for (int h = 0; h < Store.History.Count; h++)
+                {
+                    HistoryEntry e = Store.History[h];
+                    if (string.Equals(e.ChannelId, info.Id, StringComparison.OrdinalIgnoreCase) && e.Url == v.Url)
+                    {
+                        v.Downloaded = true;
+                        break;
+                    }
+                }
+                v.Checked = !v.Downloaded;
+            }
+        }
+
+        private FormatOption ChannelFormat()
+        {
+            string q = Store.Current.VideoQuality;
+            FormatOption fo = new FormatOption();
+            if (string.IsNullOrEmpty(q) || q == "best")
+            {
+                fo.VideoFmt = "bv*+ba/b";
+                fo.Title = "Best";
+            }
+            else
+            {
+                fo.VideoFmt = "bv*[height<=" + q + "]+ba/b[height<=" + q + "]/b";
+                fo.Title = q + "p";
+            }
+            return fo;
+        }
+
+        private void BtnChanDownload_Click(object sender, EventArgs e)
+        {
+            if (_channel == null) return;
+            FormatOption fmt = ChannelFormat();
+            string template = "%(channel)s - %(title)s - %(upload_date>%m%d%y)s-%(upload_time>%H%M)s.%(ext)s";
+            int count = 0;
+            for (int i = 0; i < _channel.Videos.Count; i++)
+            {
+                ChannelVideo v = _channel.Videos[i];
+                if (!v.Checked || v.Downloaded) continue;
+                _svc.Enqueue(v.Url, v.Title, fmt, Store.Current.DownloadFolder, _channel.Id, _channel.Name, template);
+                v.Checked = false;
+                count++;
+            }
+            if (count == 0) return;
+            UpdateChanCount();
+            if (count > 1)
+            {
+                _nav.SelectedIndex = 4;
+                ShowPage(4);
+            }
+        }
+
         // ---------- queue page ----------
         private void BuildQueuePage()
         {
@@ -1280,6 +1599,10 @@ namespace MpcGrabber
         private async void MainForm_Load(object sender, EventArgs e)
         {
             Store.Load();
+            string[] cmdArgs = Environment.GetCommandLineArgs();
+            int chIdx = Array.IndexOf(cmdArgs, "--channel");
+            if (chIdx >= 0 && chIdx + 1 < cmdArgs.Length) _startupChannel = cmdArgs[chIdx + 1];
+            if (_startupChannel.Length > 0) { _nav.SelectedIndex = 1; ShowPage(1); }
             UpdateFolderChip();
             RefreshHistory();
             RefreshSettings();
@@ -1299,6 +1622,13 @@ namespace MpcGrabber
                 _txtUrl.Focus();
             }
 
+            if (_startupChannel.Length > 0)
+            {
+                _chanPhActive = false;
+                _txtChannel.ForeColor = T.Text;
+                _txtChannel.Text = _startupChannel;
+                BtnLoadChannel_Click(null, null);
+            }
             _ytVersion = await YtDlp.VersionAsync();
             RefreshSettings();
         }

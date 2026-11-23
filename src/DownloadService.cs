@@ -28,12 +28,20 @@ namespace MpcGrabber
 
         public void Enqueue(string url, string title, FormatOption fmt, string folder)
         {
+            Enqueue(url, title, fmt, folder, null, null, null);
+        }
+
+        public void Enqueue(string url, string title, FormatOption fmt, string folder, string channelId, string channelName, string outputTemplate)
+        {
             DownloadJob job = new DownloadJob();
             job.Url = url;
             job.Title = string.IsNullOrWhiteSpace(title) ? url : title;
             job.VideoFmt = fmt.VideoFmt;
             job.AudioBitrate = fmt.AudioBitrate;
             job.QualityLabel = fmt.Title;
+            job.ChannelId = channelId ?? "";
+            job.ChannelName = channelName ?? "";
+            job.OutputTemplate = outputTemplate ?? "";
             lock (Jobs) Jobs.Add(job);
             Raise(true);
             EnsureWorker();
@@ -76,12 +84,14 @@ namespace MpcGrabber
                 Raise(true);
                 return;
             }
-
             string temp = Path.Combine(Path.GetTempPath(), "mpcgrabber_" + Guid.NewGuid().ToString("N") + ".txt");
             StringBuilder args = new StringBuilder();
             args.Append(YtDlp.CommonArgs());
             args.Append("--newline --no-playlist --windows-filenames ");
-            args.Append("-o ").Append(YtDlp.Quote(Path.Combine(folder, "%(title)s.%(ext)s"))).Append(' ');
+            string outTemplate = string.IsNullOrEmpty(job.OutputTemplate) ? "%(title)s.%(ext)s" : job.OutputTemplate;
+            // Path.Combine rejects template format specs such as %(upload_date>%m%d%y)s, so join manually
+            string outFileTemplate = folder.EndsWith("\\") ? folder + outTemplate : folder + "\\" + outTemplate;
+            args.Append("-o ").Append(YtDlp.Quote(outFileTemplate)).Append(' ');
             args.Append("--print-to-file after_move:filepath ").Append(YtDlp.Quote(temp)).Append(' ');
             if (job.AudioBitrate > 0)
                 args.Append("-x --audio-format mp3 --audio-quality ").Append(job.AudioBitrate).Append("K ");
@@ -89,7 +99,6 @@ namespace MpcGrabber
                 args.Append("--merge-output-format mp4 ");
             args.Append("-f ").Append(YtDlp.Quote(job.VideoFmt)).Append(' ');
             args.Append(YtDlp.Quote(job.Url));
-
             Process p = new Process();
             p.StartInfo = new ProcessStartInfo(YtDlp.ExePath, args.ToString());
             p.StartInfo.UseShellExecute = false;
@@ -147,7 +156,6 @@ namespace MpcGrabber
             try { code = p.ExitCode; } catch { }
             try { p.Dispose(); } catch { }
             _proc = null;
-
             string outPath = "";
             try
             {
@@ -187,6 +195,21 @@ namespace MpcGrabber
                 return;
             }
 
+            // yt-dlp writes "NA" when a video exposes no upload time; trim it from channel names
+            if (!string.IsNullOrEmpty(job.OutputTemplate) && outPath.Contains("-NA."))
+            {
+                string cleaned = outPath.Replace("-NA.", ".");
+                try
+                {
+                    if (File.Exists(outPath) && !File.Exists(cleaned))
+                    {
+                        File.Move(outPath, cleaned);
+                        outPath = cleaned;
+                    }
+                }
+                catch { }
+            }
+
             job.OutputPath = outPath;
             job.State = JobState.Done;
             job.Status = "Done";
@@ -201,6 +224,8 @@ namespace MpcGrabber
             h.Kind = job.AudioBitrate > 0 ? "MP3" : "MP4";
             h.Quality = job.QualityLabel;
             h.FinishedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+            h.Channel = job.ChannelName;
+            h.ChannelId = job.ChannelId;
             try { h.SizeBytes = new FileInfo(outPath).Length; } catch { }
             if (JobCompleted != null) JobCompleted(h);
             Raise(true);
