@@ -84,6 +84,12 @@ timeframe — **Last 24 hr**, **7 days** or **30 days** — and press **Fetch**.
 - CLI: `NomadTube.exe --channel "@handle"` opens straight to that channel. Downloads use your default video
   quality from Settings.
 
+## Screens
+
+| | | |
+|:--:|:--:|:--:|
+| ![Download](docs/screenshot-download.png)<br>**Download** | ![Playlist](docs/screenshot-playlist.png)<br>**Playlist** | ![Channels](docs/screenshot-channels.png)<br>**Channels** |
+| ![Queue](docs/screenshot-queue.png)<br>**Queue** | ![History](docs/screenshot-history.png)<br>**History** | ![Settings](docs/screenshot-settings.png)<br>**Settings** |
 ## Keyboard
 
 | Keys | Action |
