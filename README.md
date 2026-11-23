@@ -28,8 +28,6 @@ That's it. The app finds `cookies.txt` (or any `cookies*.txt`) next to the exe a
 passes it to yt-dlp. Re-export the file whenever the cookies expire. Using a private window keeps
 your main browser session separate, and you can log out of that session afterwards.
 
-![Playlist support](docs/screenshot-playlist.png)
-
 ## Install (portable)
 
 1. Download the latest `MPCGrabber.exe` from the [latest release](https://github.com/jlewsi/mpc-grabber/releases/latest).
@@ -61,11 +59,7 @@ same folder, so the whole folder is the app. Deleting the folder removes every t
   window frame while the window is floating (black once maximized).
 - Drag-and-drop URLs, dark title bar, single ~80 KB executable.
 
-![Settings](docs/screenshot-settings.png)
-
 ## Channels
-
-![Channels](docs/screenshot-channels.png)
 
 Paste a channel URL (`https://www.youtube.com/@handle`, `/channel/UC…`, `/c/name`) or just `@handle`, pick a
 timeframe — **Last 24 hr**, **7 days** or **30 days** — and press **Load channel**.
