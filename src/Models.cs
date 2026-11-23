@@ -77,7 +77,9 @@ namespace MpcGrabber
         public string DownloadFolder { get; set; }
         public int AudioBitrate { get; set; }
         public string VideoQuality { get; set; }
-        public Settings() { AudioBitrate = 320; VideoQuality = "best"; }
+        public bool CheckUpdates { get; set; }
+        public int ChannelDays { get; set; }
+        public Settings() { AudioBitrate = 320; VideoQuality = "best"; CheckUpdates = true; ChannelDays = 30; }
     }
 
 internal class ChannelVideo

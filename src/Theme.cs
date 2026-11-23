@@ -29,6 +29,10 @@ namespace MpcGrabber
         public static readonly Color ButtonBorder = Color.FromArgb(44, 122, 74);
         public static readonly Color ButtonBorderHi = Color.FromArgb(61, 255, 136);
         public static readonly Color OnAccent = Color.FromArgb(2, 20, 8);
+        public static readonly Color Blue = Color.FromArgb(77, 141, 255);
+        public static readonly Color BlueTint = Color.FromArgb(10, 22, 44);
+        public static readonly Color Purple = Color.FromArgb(186, 115, 255);
+        public static readonly Color PurpleTint = Color.FromArgb(26, 14, 40);
 
         public static readonly Font H1 = new Font("Segoe UI", 20f, FontStyle.Bold);
         public static readonly Font H2 = new Font("Segoe UI", 13f, FontStyle.Bold);

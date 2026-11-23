@@ -43,6 +43,8 @@ namespace MpcGrabber
                 Current.AudioBitrate = 320;
             if (!IsKnownVideoQuality(Current.VideoQuality))
                 Current.VideoQuality = "best";
+            if (Current.ChannelDays != 1 && Current.ChannelDays != 7 && Current.ChannelDays != 30)
+                Current.ChannelDays = 30;
 
             try
             {

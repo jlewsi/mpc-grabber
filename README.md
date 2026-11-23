@@ -40,12 +40,18 @@ same folder, so the whole folder is the app. Deleting the folder removes every t
 
 ## Features
 
+- **Channel links work on the Download page too** — paste a channel URL or `@handle` there and *Fetch*
+  switches to the Channels tab and loads that channel with the timeframe you last picked.
 - **Real formats per URL** — after *Fetch* it shows the actual resolutions with approximate sizes,
   plus **Best** and **MP3 320 / 192 / 128**.
 - **Playlists** — checkbox list with All/None; your chosen quality applies to every checked item.
 - **Queue page** — its own section in the sidebar. Starting a playlist download jumps straight to it,
   with every item's state, quality, live percent / speed / ETA, a *Cancel current* and a
   *Clear finished* button. It auto-scrolls to keep the file currently downloading in view.
+- **Auto-update** — optionally checks GitHub on launch and, when a newer release exists, downloads it,
+  swaps the exe and restarts. Toggle it in Settings, where a **Check now** button and the current
+  version are shown too.
+- **Loading spinner** — a large spinning ring replaces the content while yt-dlp reads a link or channel.
 - **Defaults** — set a default video quality and a default MP3 bitrate; the matching format is
   preselected every time you fetch a link.
 - **Channels** — load any channel by URL or `@handle`, filter to the last 24 hours / 7 days / 30 days, and pick
@@ -69,6 +75,10 @@ timeframe — **Last 24 hr**, **7 days** or **30 days** — and press **Load cha
 - YouTube's Shorts tab exposes no publish dates, so the newest **12 shorts** are always listed and shown as
   `recent`. Video dates are approximate to the day (that is what the channel listing provides).
 - Save a channel by loading it — it stays in **Saved channels** with how many files you have downloaded from it.
+- **Paste** fills the box from the clipboard and **Fetch** reads the channel; the three time buttons
+  (24 hr / 7 days / 30 days) only pick the default timeframe — they never reload on their own. That
+  default is remembered and is also what a channel link pasted on the Download page uses.
+- Video rows have a **blue** border, Shorts a **purple** one and a `SHORT` badge.
   Items already downloaded (matching that channel's history) are dimmed, ticked with a green check and left
   unchecked, so re-running a check never downloads the same video twice.
 - Channel downloads are named **`Channel - Title - MMDDYY-HHMM.ext`** (the time part is dropped when YouTube
@@ -89,6 +99,7 @@ timeframe — **Last 24 hr**, **7 days** or **30 days** — and press **Load cha
 
 ```
 MPCGrabber.exe "https://youtu.be/…"              # open with a link filled in
+MPCGrabber.exe "@handle"                          # open a channel directly
 MPCGrabber.exe "https://youtu.be/…" --download   # fetch and start immediately
 ```
 

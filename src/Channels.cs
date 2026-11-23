@@ -246,8 +246,11 @@ namespace MpcGrabber
                 Rectangle r = new Rectangle(0, y, Width - 6, RowH);
                 bool hov = row.VideoIndex == _hover;
                 Rectangle card = new Rectangle(r.X + 2, r.Y + 2, r.Width - 4, RowH - 8);
-                T.FillRound(g, v.Checked && !v.Downloaded ? T.AccentTint : (hov ? T.Hover : T.Card), card, 9);
-                T.StrokeRound(g, v.Checked && !v.Downloaded ? T.Accent : T.BorderSoft, card, 9, v.Checked && !v.Downloaded ? 1.3f : 1f);
+                bool on = v.Checked && !v.Downloaded;
+                Color edge = v.IsShort ? T.Purple : T.Blue;
+                Color tint = v.IsShort ? T.PurpleTint : T.BlueTint;
+                T.FillRound(g, on ? tint : (hov ? T.Hover : T.Card), card, 9);
+                T.StrokeRound(g, v.Downloaded ? T.BorderSoft : edge, card, 9, on ? 1.6f : 1.1f);
 
                 Rectangle cb = new Rectangle(card.X + 12, card.Y + 10, 18, 18);
                 if (v.Downloaded)
@@ -267,9 +270,9 @@ namespace MpcGrabber
                 if (v.IsShort)
                 {
                     Rectangle badge = new Rectangle(x, card.Y + 11, 52, 18);
-                    T.FillRound(g, T.Card2, badge, 4);
-                    T.StrokeRound(g, T.Warn, badge, 4, 1f);
-                    T.Draw(g, "SHORT", T.Tiny, T.Warn, badge, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                    T.FillRound(g, T.PurpleTint, badge, 4);
+                    T.StrokeRound(g, T.Purple, badge, 4, 1f);
+                    T.Draw(g, "SHORT", T.Tiny, T.Purple, badge, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                     x += 60;
                 }
 

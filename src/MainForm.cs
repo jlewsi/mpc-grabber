@@ -156,7 +156,8 @@ namespace MpcGrabber
         private readonly string _startupUrl = "";
         private bool _autoDownload;
         private string _startupChannel = "";
-        private FlatButton _btnPaste, _btnFetch, _btnDownload, _btnCancel, _btnFolder, _btnChange;
+        private FlatButton _btnPaste, _btnFetch, _btnCancel, _btnFolder, _btnChange;
+        private DownloadButton _btnDownload;
         private InfoCard _infoCard;
         private Label _lblQuality;
         private FormatGrid _grid;
@@ -167,7 +168,13 @@ namespace MpcGrabber
         private TextBox _txtChannel;
         private bool _chanPhActive = true;
         private const string ChannelPlaceholder = "@handle or youtube.com/@handle";
-        private FlatButton _btnLoadChannel, _btnChan24, _btnChan7, _btnChan30, _btnChanDownload, _btnChanAll, _btnChanNone;
+        private FlatButton _btnLoadChannel, _btnChan24, _btnChan7, _btnChan30, _btnChanAll, _btnChanNone, _btnChanPaste;
+        private DownloadButton _btnChanDownload;
+        private LoadingOverlay _loading;
+        private ToggleBox _chkUpdates;
+        private FlatButton _btnCheckNow;
+        private Label _lblUpdateStatus;
+        private Label _lblVersion;
         private ChannelPicker _chanPicker;
         private ChannelVideoList _chanList;
         private Label _lblChanHeader, _lblChanSaved, _lblChanHint;
@@ -195,7 +202,7 @@ namespace MpcGrabber
 
         public MainForm(string[] args)
         {
-            if (args != null && args.Length > 1 && args[1].StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            if (args != null && args.Length > 1 && (args[1].StartsWith("http", StringComparison.OrdinalIgnoreCase) || args[1].StartsWith("@") || args[1].IndexOf("youtube.com/", StringComparison.OrdinalIgnoreCase) >= 0))
                 _startupUrl = args[1].Trim();
             if (args != null && args.Length > 2 && string.Equals(args[2], "--download", StringComparison.OrdinalIgnoreCase))
                 _autoDownload = true;
@@ -218,6 +225,11 @@ namespace MpcGrabber
             BuildSettingsPage();
             BuildQueuePage();
             BuildChannelsPage();
+
+            _loading = new LoadingOverlay();
+            _loading.Dock = DockStyle.Fill;
+            Controls.Add(_loading);
+            _loading.BringToFront();
 
             _svc.Changed += ServiceChanged;
             _svc.JobCompleted += ServiceJobCompleted;
@@ -308,26 +320,26 @@ namespace MpcGrabber
             _nav.SelectionChanged += delegate { ShowPage(_nav.SelectedIndex); };
             _sidebar.Controls.Add(_nav);
 
+            Panel bottom = new Panel();
+            bottom.Dock = DockStyle.Bottom;
+            bottom.Height = 74;
+            bottom.BackColor = T.Sidebar;
+            _sidebar.Controls.Add(bottom);
+
             _cookiePill = new Pill();
-            _cookiePill.Bounds = new Rectangle(14, 700, 184, 24);
+            _cookiePill.Bounds = new Rectangle(14, 6, 184, 24);
             _cookiePill.BackColor = T.Sidebar;
             _cookiePill.BgColor = T.Card2;
-            _sidebar.Controls.Add(_cookiePill);
+            bottom.Controls.Add(_cookiePill);
 
-            Label ver = new Label();
-            ver.Text = "v1.1  \u00B7  portable";
-            ver.Font = T.Tiny;
-            ver.ForeColor = T.Faint;
-            ver.BackColor = T.Sidebar;
-            ver.AutoSize = false;
-            ver.Bounds = new Rectangle(18, 0, 180, 16);
-            _sidebar.Controls.Add(ver);
-
-            _sidebar.Resize += delegate
-            {
-                _cookiePill.Top = _sidebar.Height - 64;
-                ver.Top = _sidebar.Height - 34;
-            };
+            _lblVersion = new Label();
+            _lblVersion.Text = "v" + Updater.CurrentShort + "  \u00B7  portable";
+            _lblVersion.Font = T.Tiny;
+            _lblVersion.ForeColor = T.Faint;
+            _lblVersion.BackColor = T.Sidebar;
+            _lblVersion.AutoSize = false;
+            _lblVersion.Bounds = new Rectangle(18, 38, 180, 16);
+            bottom.Controls.Add(_lblVersion);
 
             Panel edge = new Panel();
             edge.Dock = DockStyle.Right;
@@ -506,17 +518,17 @@ namespace MpcGrabber
             _btnAll = MkButton("All", null, BtnVariant.Ghost, 52, T.Bg);
             _btnAll.Height = 26;
             _btnAll.Font = T.Small;
-            _btnAll.Click += delegate { _entries.SetAll(true); _btnDownload.Text = "Download " + _entries.CheckedCount; };
+            _btnAll.Click += delegate { _entries.SetAll(true); _btnDownload.Count = _entries.CheckedCount; };
             _pageDownload.Controls.Add(_btnAll);
 
             _btnNone = MkButton("None", null, BtnVariant.Ghost, 58, T.Bg);
             _btnNone.Height = 26;
             _btnNone.Font = T.Small;
-            _btnNone.Click += delegate { _entries.SetAll(false); _btnDownload.Text = "Download " + _entries.CheckedCount; };
+            _btnNone.Click += delegate { _entries.SetAll(false); _btnDownload.Count = _entries.CheckedCount; };
             _pageDownload.Controls.Add(_btnNone);
 
             _entries = new EntryList();
-            _entries.Changed += delegate { if (_btnDownload != null) _btnDownload.Text = "Download " + _entries.CheckedCount; };
+            _entries.Changed += delegate { if (_btnDownload != null) _btnDownload.Count = _entries.CheckedCount; };
             _pageDownload.Controls.Add(_entries);
 
             _footer = new Panel();
@@ -557,8 +569,9 @@ namespace MpcGrabber
             _btnCancel.Click += delegate { _svc.CancelCurrent(); };
             _footer.Controls.Add(_btnCancel);
 
-            _btnDownload = MkButton("Download", "\uE896", BtnVariant.Primary, 150, T.Bg);
-            _btnDownload.Height = 40;
+            _btnDownload = new DownloadButton();
+            _btnDownload.Label = "Download";
+            _btnDownload.Bounds = new Rectangle(0, 0, 190, 46);
             _btnDownload.Click += BtnDownload_Click;
             _footer.Controls.Add(_btnDownload);
 
@@ -632,7 +645,7 @@ namespace MpcGrabber
             _btnChange.Bounds = new Rectangle(266, 8, 74, 34);
             _lblStatus.Bounds = new Rectangle(0, 50, Math.Max(200, W - 340), 18);
             _progress.Bounds = new Rectangle(Math.Max(0, W - 320), 54, 320, 8);
-            _btnDownload.Bounds = new Rectangle(W - 150, 6, 150, 40);
+            _btnDownload.Bounds = new Rectangle(W - 194, 2, 194, 48);
             _btnCancel.Bounds = new Rectangle(W - 150 - 10 - 84, 6, 84, 40);
             _btnCancel.Visible = _svc.Busy;
             _progress.Visible = _svc.Busy;
@@ -679,7 +692,19 @@ namespace MpcGrabber
                 SetStatus("Paste a link first.", T.Warn);
                 return;
             }
+
+            if (LooksLikeChannelUrl(url))
+            {
+                _chanPhActive = false;
+                _txtChannel.ForeColor = T.Text;
+                _txtChannel.Text = url;
+                _nav.SelectedIndex = 1;
+                ShowPage(1);
+                BtnLoadChannel_Click(null, null);
+                return;
+            }
             _fetching = true;
+            _loading.ShowOverlay("Reading link\u2026");
             _btnFetch.Enabled = false;
             SetStatus("Reading the link\u2026", T.Dim);
             try
@@ -698,7 +723,7 @@ namespace MpcGrabber
                 _infoCard.Invalidate();
                 LoadThumb(info.ThumbnailUrl);
                 SetStatus(info.IsPlaylist ? "Playlist loaded \u2014 uncheck anything you don't want." : "Ready to download.", T.Dim);
-                if (_btnDownload != null) _btnDownload.Text = info.IsPlaylist ? "Download " + info.Entries.Count : "Download";
+                if (_btnDownload != null) _btnDownload.Count = info.IsPlaylist ? info.Entries.Count : 0;
                 if (_autoDownload)
                 {
                     _autoDownload = false;
@@ -717,6 +742,7 @@ namespace MpcGrabber
             finally
             {
                 _fetching = false;
+                _loading.HideOverlay();
                 _btnFetch.Enabled = true;
             }
         }
@@ -1177,14 +1203,43 @@ namespace MpcGrabber
             _btnClearHistory2.Click += delegate { ClearHistory(); };
             card3.Controls.Add(_btnClearHistory2);
 
+            RoundedPanel card4 = new RoundedPanel();
+            card4.Fill = T.Card;
+            card4.Radius = 12;
+            card4.Bounds = new Rectangle(0, 556, 760, 96);
+            _pageSettings.Controls.Add(card4);
+
+            Label lblUpd = MkLabel("Updates", T.H3, T.Text, T.Card);
+            lblUpd.Bounds = new Rectangle(18, 12, 300, 20);
+            card4.Controls.Add(lblUpd);
+
+            _chkUpdates = new ToggleBox();
+            _chkUpdates.Text = "Check GitHub for a newer release on launch";
+            _chkUpdates.Bounds = new Rectangle(18, 38, 430, 22);
+            _chkUpdates.Checked = Store.Current.CheckUpdates;
+            _chkUpdates.CheckedChanged += delegate { Store.Current.CheckUpdates = _chkUpdates.Checked; Store.SaveSettings(); };
+            card4.Controls.Add(_chkUpdates);
+
+            _lblUpdateStatus = MkLabel("", T.Tiny, T.Faint, T.Card);
+            _lblUpdateStatus.Bounds = new Rectangle(18, 66, 430, 18);
+            card4.Controls.Add(_lblUpdateStatus);
+
+            _btnCheckNow = MkButton("Check now", null, BtnVariant.Ghost, 110, T.Card);
+            _btnCheckNow.Height = 30;
+            _btnCheckNow.Top = 34;
+            _btnCheckNow.Click += delegate { CheckForUpdates(true); };
+            card4.Controls.Add(_btnCheckNow);
+
             Label about = MkLabel("", T.Small, T.Faint, T.Bg);
             about.Name = "about";
-            about.Bounds = new Rectangle(4, 556, 760, 50);
+            about.Bounds = new Rectangle(4, 668, 760, 50);
             _pageSettings.Controls.Add(about);
 
             _pageSettings.Resize += delegate
             {
                 int w = Math.Min(760, _pageSettings.ClientSize.Width);
+                card4.Width = w;
+                _btnCheckNow.Left = w - 128;
                 card.Width = w;
                 cardDefaults.Width = w;
                 card2.Width = w;
@@ -1223,6 +1278,8 @@ namespace MpcGrabber
                 _lblCookies.ForeColor = T.Warn;
             }
             UpdateSettingPills();
+            if (_chkUpdates != null) _chkUpdates.Checked = Store.Current.CheckUpdates;
+            if (_lblUpdateStatus != null && _lblUpdateStatus.Text.Length == 0) _lblUpdateStatus.Text = "current build v" + Updater.CurrentShort;
             Control[] found = _pageSettings.Controls.Find("about", true);
             if (found.Length > 0)
             {
@@ -1290,7 +1347,12 @@ namespace MpcGrabber
             };
             _chanInput.Controls.Add(_txtChannel);
 
-            _btnLoadChannel = MkButton("Load channel", null, BtnVariant.Primary, 124, T.Card);
+            _btnChanPaste = MkButton("Paste", null, BtnVariant.Ghost, 76, T.Card);
+            _btnChanPaste.Height = 34;
+            _btnChanPaste.Click += delegate { DoPasteChannel(); };
+            _chanInput.Controls.Add(_btnChanPaste);
+
+            _btnLoadChannel = MkButton("Fetch", null, BtnVariant.Primary, 92, T.Card);
             _btnLoadChannel.Height = 34;
             _btnLoadChannel.Click += BtnLoadChannel_Click;
             _chanInput.Controls.Add(_btnLoadChannel);
@@ -1312,9 +1374,9 @@ namespace MpcGrabber
                 {
                     if (_channelDays == d) return;
                     _channelDays = d;
+                    Store.Current.ChannelDays = d;
+                    Store.SaveSettings();
                     UpdateChannelRadios();
-                    if (_channel != null) BtnLoadChannel_Click(null, null);
-                    else UpdateChanCount();
                 };
                 _pageChannels.Controls.Add(b);
             }
@@ -1357,13 +1419,14 @@ namespace MpcGrabber
             _chanList.Changed += delegate { UpdateChanCount(); };
             _pageChannels.Controls.Add(_chanList);
 
-            _btnChanDownload = MkButton("Download 0", "\uE896", BtnVariant.Primary, 170, T.Bg);
-            _btnChanDownload.Height = 40;
+            _btnChanDownload = new DownloadButton();
+            _btnChanDownload.Label = "Download";
             _btnChanDownload.Enabled = false;
             _btnChanDownload.Click += BtnChanDownload_Click;
             _pageChannels.Controls.Add(_btnChanDownload);
 
             _pageChannels.Resize += delegate { LayoutChannelsPage(); };
+            _channelDays = Store.Current.ChannelDays;
             UpdateChannelRadios();
             UpdateChanCount();
         }
@@ -1375,10 +1438,12 @@ namespace MpcGrabber
             int h = _pageChannels.ClientSize.Height;
 
             _chanInput.Bounds = new Rectangle(0, 74, w - 134, 50);
-            _txtChannel.Width = Math.Max(120, w - 134 - 44 - 12 - 130 - 12);
-            _btnLoadChannel.Left = w - 124;
-            _btnLoadChannel.Top = 78;
-
+            int cardW = w - 134;
+            _btnLoadChannel.Left = cardW - 8 - 92;
+            _btnLoadChannel.Top = 8;
+            _btnChanPaste.Left = _btnLoadChannel.Left - 8 - 76;
+            _btnChanPaste.Top = 8;
+            _txtChannel.Width = Math.Max(120, _btnChanPaste.Left - 44 - 12);
             int top = 178;
             _lblChanSaved.Bounds = new Rectangle(0, top, 220, 18);
             _chanPicker.Bounds = new Rectangle(0, top + 22, 218, Math.Max(80, h - top - 30));
@@ -1394,7 +1459,7 @@ namespace MpcGrabber
             _chanList.Bounds = new Rectangle(rx, top + 26, rw, Math.Max(120, h - top - 26 - 58));
             _chanList.RefreshLayouts();
 
-            _btnChanDownload.Bounds = new Rectangle(w - 170, h - 48, 170, 40);
+            _btnChanDownload.Bounds = new Rectangle(w - 194, h - 52, 194, 48);
         }
 
         private void UpdateChannelRadios()
@@ -1415,7 +1480,7 @@ namespace MpcGrabber
         {
             if (_chanList == null || _btnChanDownload == null) return;
             int n = _chanList.CheckedCount;
-            _btnChanDownload.Text = "Download " + n;
+            _btnChanDownload.Count = n;
             _btnChanDownload.Enabled = n > 0;
             if (_channel == null)
             {
@@ -1438,6 +1503,7 @@ namespace MpcGrabber
                 return;
             }
             _loadingChannel = true;
+            _loading.ShowOverlay("Loading channel\u2026");
             _btnLoadChannel.Enabled = false;
             _btnLoadChannel.Text = "Loading\u2026";
             _lblChanHint.Text = "Reading channel\u2026";
@@ -1469,8 +1535,9 @@ namespace MpcGrabber
             finally
             {
                 _loadingChannel = false;
+                _loading.HideOverlay();
                 _btnLoadChannel.Enabled = true;
-                _btnLoadChannel.Text = "Load channel";
+                _btnLoadChannel.Text = "Fetch";
                 LayoutChannelsPage();
             }
         }
@@ -1637,6 +1704,7 @@ namespace MpcGrabber
                 BtnLoadChannel_Click(null, null);
             }
             _ytVersion = await YtDlp.VersionAsync();
+            if (Store.Current.CheckUpdates) CheckForUpdates(false);
             RefreshSettings();
         }
 
@@ -1651,6 +1719,74 @@ namespace MpcGrabber
                 else if (i == 6) { j.State = JobState.Downloading; j.Progress = 0.42; j.Status = "Downloading"; j.Speed = "2.4MiB/s"; j.Eta = "00:42"; }
                 else { j.State = JobState.Queued; j.Status = "Queued"; }
                 _svc.Jobs.Add(j);
+            }
+        }
+        private static bool LooksLikeChannelUrl(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return false;
+            string t = s.Trim().ToLowerInvariant();
+            if (t.StartsWith("@")) return true;
+            if (t.Contains("/watch") || t.Contains("watch?v=") || t.Contains("list=") || t.Contains("youtu.be/")) return false;
+            return t.Contains("youtube.com/@") || t.Contains("youtube.com/channel/") || t.Contains("youtube.com/c/") || t.Contains("youtube.com/user/");
+        }
+
+        private void DoPasteChannel()
+        {
+            try
+            {
+                if (!Clipboard.ContainsText()) return;
+                string t = Clipboard.GetText().Trim();
+                if (t.Length == 0) return;
+                _chanPhActive = false;
+                _txtChannel.ForeColor = T.Text;
+                _txtChannel.Text = t;
+                _txtChannel.Focus();
+                _txtChannel.SelectionStart = _txtChannel.Text.Length;
+            }
+            catch { }
+        }
+
+        private async void CheckForUpdates(bool manual)
+        {
+            if (manual && _lblUpdateStatus != null) _lblUpdateStatus.Text = "Checking GitHub\u2026";
+            try
+            {
+                ReleaseInfo r = await Updater.CheckAsync();
+                if (r == null)
+                {
+                    if (manual) _lblUpdateStatus.Text = "Could not read the release feed.";
+                    return;
+                }
+                if (!Updater.IsNewer(r))
+                {
+                    if (_lblUpdateStatus != null) _lblUpdateStatus.Text = "Up to date \u00B7 v" + Updater.CurrentShort;
+                    if (manual)
+                        MessageBox.Show(this, "You're running the latest version (v" + Updater.CurrentShort + ").",
+                            "No updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                if (_lblUpdateStatus != null) _lblUpdateStatus.Text = "Update available \u00B7 " + r.Tag;
+                string msg = "A newer version is available: " + r.Tag +
+                             "\n\nDownload it now? MPC Grabber will close and restart with the new build.";
+                if (MessageBox.Show(this, msg, "Update available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) != DialogResult.Yes)
+                    return;
+
+                if (_lblUpdateStatus != null) _lblUpdateStatus.Text = "Downloading " + r.Tag + "\u2026";
+                string err;
+                Updater.DownloadAndRestart(r, out err);
+                if (!string.IsNullOrEmpty(err))
+                {
+                    if (_lblUpdateStatus != null) _lblUpdateStatus.Text = "Update failed.";
+                    MessageBox.Show(this, "Could not update: " + err, "Update failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                Application.Exit();
+            }
+            catch (Exception ex)
+            {
+                YtDlp.Log("UPDATE CHECK FAILED: " + ex.Message);
+                if (manual && _lblUpdateStatus != null) _lblUpdateStatus.Text = "Update check failed.";
             }
         }
         private void UpdateCookiePill()
