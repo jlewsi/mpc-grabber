@@ -1174,6 +1174,9 @@ namespace MpcGrabber
                 };
                 cardDefaults.Controls.Add(b);
 
+                _audioBtns[i] = b;
+            }
+
             _chkTranscript = new ToggleBox();
             _chkTranscript.Text = "Always save English transcript (.srt) with video (channels too)";
             _chkTranscript.Bounds = new Rectangle(18, 138, 590, 22);
@@ -1184,8 +1187,7 @@ namespace MpcGrabber
             Label lblTrHint = MkLabel("auto-generated captions are fine \u2014 converted to .srt next to the video", T.Tiny, T.Faint, T.Card);
             lblTrHint.Bounds = new Rectangle(18, 164, 620, 16);
             cardDefaults.Controls.Add(lblTrHint);
-                _audioBtns[i] = b;
-            }
+
 
             // --- cookies ---
             RoundedPanel card2 = new RoundedPanel();
