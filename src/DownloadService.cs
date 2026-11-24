@@ -91,7 +91,13 @@ namespace MpcGrabber
             bool subsOnly = job.TranscriptOnly;
             bool subsWithVideo = !subsOnly && Store.Current.TranscriptWithVideo;
             args.Append("--newline --no-playlist --windows-filenames ");
-            string subs = "--write-subs --write-auto-subs --sub-langs " + YtDlp.Quote("en,en-orig") + " --convert-subs srt ";
+            string subLangs = "en,en-orig,en-US,en-GB,en-AU,en-CA";
+            if (subsOnly)
+            {
+                string picked = YtDlp.PickSubtitleLanguage(job.Url);
+                if (picked.Length > 0) subLangs = picked;
+            }
+            string subs = "--write-subs --write-auto-subs --sub-langs " + YtDlp.Quote(subLangs) + " --convert-subs srt ";
             if (subsOnly) args.Append("--skip-download ").Append(subs);
             else if (subsWithVideo) args.Append(subs);
             string outTemplate = string.IsNullOrEmpty(job.OutputTemplate) ? "%(title)s.%(ext)s" : job.OutputTemplate;
@@ -144,6 +150,7 @@ namespace MpcGrabber
                 done.TrySetResult(true);
             };
 
+            DateTime started = DateTime.Now;
             try
             {
                 p.Start();
@@ -177,8 +184,6 @@ namespace MpcGrabber
             }
             catch { }
 
-            if (subsOnly && outPath.Length == 0) outPath = job.SubtitlePath;
-
             if (_cancel)
             {
                 job.State = JobState.Cancelled;
@@ -188,7 +193,31 @@ namespace MpcGrabber
                 return;
             }
 
-            if (code != 0 || outPath.Length == 0 || !File.Exists(outPath))
+            if (subsOnly)
+            {
+                string sub = TranscriptText.NewestSubtitle(folder, started);
+                if (sub.Length == 0 && job.SubtitlePath.Length > 0 && File.Exists(job.SubtitlePath)) sub = job.SubtitlePath;
+                if (sub.Length == 0)
+                {
+                    job.State = JobState.Failed;
+                    job.Status = "Failed";
+                    job.Error = "No transcript is available for this video.";
+                    Raise(true);
+                    return;
+                }
+                string txt = TranscriptText.Convert(sub);
+                if (txt.Length == 0)
+                {
+                    job.State = JobState.Failed;
+                    job.Status = "Failed";
+                    job.Error = "Transcript downloaded but could not be converted to text.";
+                    Raise(true);
+                    return;
+                }
+                TranscriptText.DeleteSidecars(TranscriptText.BaseName(sub));
+                outPath = txt;
+            }
+            else if (code != 0 || outPath.Length == 0 || !File.Exists(outPath))
             {
                 job.State = JobState.Failed;
                 job.Status = "Failed";
@@ -201,7 +230,7 @@ namespace MpcGrabber
                 {
                     if (el[i].Trim().Length > 0) last.AppendLine(el[i].Trim());
                 }
-                job.Error = subsOnly ? "No English transcript available for this video." : last.ToString().Trim();
+                job.Error = last.ToString().Trim();
                 Raise(true);
                 return;
             }
@@ -221,20 +250,6 @@ namespace MpcGrabber
                 catch { }
             }
 
-            if (subsOnly)
-            {
-                string txt = TranscriptText.Convert(outPath);
-                if (txt.Length == 0)
-                {
-                    job.State = JobState.Failed;
-                    job.Status = "Failed";
-                    job.Error = "Transcript downloaded but could not be converted to text.";
-                    Raise(true);
-                    return;
-                }
-                TranscriptText.DeleteSidecars(TranscriptText.BaseName(outPath));
-                outPath = txt;
-            }
             else if (subsWithVideo)
             {
                 string basePath = TranscriptText.BaseName(outPath);

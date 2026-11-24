@@ -101,6 +101,26 @@ namespace MpcGrabber
             catch { }
         }
 
+        public static string NewestSubtitle(string folder, DateTime since)
+        {
+            string srt = "";
+            string other = "";
+            try
+            {
+                if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) return "";
+                DateTime cutoff = since.AddSeconds(-3);
+                foreach (string f in Directory.GetFiles(folder))
+                {
+                    string ext = Path.GetExtension(f).ToLowerInvariant();
+                    if (ext != ".srt" && ext != ".vtt" && ext != ".ttml") continue;
+                    if (File.GetLastWriteTime(f) < cutoff) continue;
+                    if (ext == ".srt" && srt.Length == 0) srt = f;
+                    else if (other.Length == 0) other = f;
+                }
+            }
+            catch { }
+            return srt.Length > 0 ? srt : other;
+        }
         public static string FindSubtitle(string basePath)
         {
             try

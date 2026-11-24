@@ -96,6 +96,88 @@ namespace MpcGrabber
             return sb.ToString();
         }
 
+        // Reads the available caption tracks and returns the best language code:
+        // English originals first, then English regionals, then whatever the video defaults to.
+        public static string PickSubtitleLanguage(string url)
+        {
+            try
+            {
+                Process p = new Process();
+                p.StartInfo = new ProcessStartInfo(ExePath, CommonArgs() + "--skip-download -J " + Quote(url));
+                p.StartInfo.UseShellExecute = false;
+                p.StartInfo.CreateNoWindow = true;
+                p.StartInfo.RedirectStandardOutput = true;
+                p.StartInfo.RedirectStandardError = true;
+                p.StartInfo.StandardOutputEncoding = Encoding.UTF8;
+                p.StartInfo.StandardErrorEncoding = Encoding.UTF8;
+                p.StartInfo.WorkingDirectory = Dir;
+                StringBuilder err = new StringBuilder();
+                p.ErrorDataReceived += delegate(object s, DataReceivedEventArgs e) { if (e.Data != null) lock (err) err.Append(e.Data); };
+                p.Start();
+                p.BeginErrorReadLine();
+                string json = p.StandardOutput.ReadToEnd();
+                if (!p.WaitForExit(45000))
+                {
+                    try { p.Kill(); } catch { }
+                    return "";
+                }
+                if (json.Length < 10) return "";
+
+                JavaScriptSerializer ser = new JavaScriptSerializer();
+                ser.MaxJsonLength = 64 * 1024 * 1024;
+                Dictionary<string, object> root = ser.Deserialize<Dictionary<string, object>>(json);
+                string lang = "";
+                object lv;
+                if (root != null && root.TryGetValue("language", out lv) && lv != null) lang = Convert.ToString(lv);
+                return BestLanguage(LangKeys(root, "subtitles"), LangKeys(root, "automatic_captions"), lang);
+            }
+            catch { return ""; }
+        }
+
+        private static List<string> LangKeys(Dictionary<string, object> root, string key)
+        {
+            List<string> list = new List<string>();
+            try
+            {
+                object v;
+                if (root != null && root.TryGetValue(key, out v))
+                {
+                    Dictionary<string, object> map = v as Dictionary<string, object>;
+                    if (map != null) foreach (string k in map.Keys) list.Add(k);
+                }
+            }
+            catch { }
+            return list;
+        }
+
+        private static string BestLanguage(List<string> manual, List<string> auto, string language)
+        {
+            string[] prefer = { "en", "en-orig", "en-US", "en-GB", "en-AU", "en-CA" };
+            for (int i = 0; i < prefer.Length; i++)
+                if (manual.Contains(prefer[i])) return prefer[i];
+            for (int i = 0; i < prefer.Length; i++)
+                if (auto.Contains(prefer[i])) return prefer[i];
+            for (int i = 0; i < manual.Count; i++)
+                if (System.Text.RegularExpressions.Regex.IsMatch(manual[i], "^en-[A-Z]{2}$")) return manual[i];
+            for (int i = 0; i < auto.Count; i++)
+                if (System.Text.RegularExpressions.Regex.IsMatch(auto[i], "^en-[A-Z]{2}$")) return auto[i];
+            if (!string.IsNullOrEmpty(language))
+            {
+                if (manual.Contains(language)) return language;
+                if (auto.Contains(language)) return language;
+            }
+            if (manual.Count > 0)
+            {
+                manual.Sort(StringComparer.OrdinalIgnoreCase);
+                return manual[0];
+            }
+            if (auto.Count > 0)
+            {
+                auto.Sort(StringComparer.OrdinalIgnoreCase);
+                return auto[0];
+            }
+            return "";
+        }
         public static Task<ProcResult> RunAsync(string args, Action<string> onLine)
         {
             TaskCompletionSource<ProcResult> tcs = new TaskCompletionSource<ProcResult>();

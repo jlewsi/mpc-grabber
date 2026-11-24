@@ -47,7 +47,8 @@ same folder, so the whole folder is the app. Deleting the folder removes every t
   of a video or MP3; a Settings toggle (*Always save English transcript with video*) also writes one next to
   every download, channel downloads included. The transcript is saved as **bare words** in `<title>.txt`
   (cue numbers, timestamps and blank lines stripped, punctuation removed), the subtitle files are deleted,
-  and any text in `transcript-add.txt` beside the exe is prepended. English only, auto-captions are fine.
+  and any text in `transcript-add.txt` beside the exe is prepended. English is preferred; if a video has no
+  English captions the original/default track is used instead, so a transcript is never lost.
 - **Playlists** — checkbox list with All/None; your chosen quality applies to every checked item.
 - **Queue page** — its own section in the sidebar. Starting a playlist download jumps straight to it,
   with every item's state, quality, live percent / speed / ETA, *Cancel current* and *Clear finished*.
