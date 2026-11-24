@@ -1178,13 +1178,13 @@ namespace MpcGrabber
             }
 
             _chkTranscript = new ToggleBox();
-            _chkTranscript.Text = "Always save English transcript (.srt) with video (channels too)";
+            _chkTranscript.Text = "Always save English transcript with video (channels too)";
             _chkTranscript.Bounds = new Rectangle(18, 138, 590, 22);
             _chkTranscript.Checked = Store.Current.TranscriptWithVideo;
             _chkTranscript.CheckedChanged += delegate { Store.Current.TranscriptWithVideo = _chkTranscript.Checked; Store.SaveSettings(); };
             cardDefaults.Controls.Add(_chkTranscript);
 
-            Label lblTrHint = MkLabel("auto-generated captions are fine \u2014 converted to .srt next to the video", T.Tiny, T.Faint, T.Card);
+            Label lblTrHint = MkLabel("auto-generated captions are fine \u2014 saved as <title>.txt, subtitle files removed", T.Tiny, T.Faint, T.Card);
             lblTrHint.Bounds = new Rectangle(18, 164, 620, 16);
             cardDefaults.Controls.Add(lblTrHint);
 

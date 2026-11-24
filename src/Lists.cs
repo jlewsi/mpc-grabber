@@ -380,9 +380,9 @@ namespace MpcGrabber
                 T.StrokeRound(g, T.BorderSoft, new Rectangle(r.X, r.Y + 3, r.Width, RowH - 10), 10, 1f);
 
                 Rectangle badge = new Rectangle(r.X + 14, r.Y + 15, 40, 40);
-                bool mp3 = h.Kind == "MP3";
-                T.FillRound(g, mp3 ? Color.FromArgb(24, 48, 40) : T.AccentTint, badge, 10);
-                T.Draw(g, mp3 ? "MP3" : "MP4", T.SmallB, mp3 ? T.Success : T.Accent, badge,
+                string kind = h.Kind == "MP3" ? "MP3" : (h.Kind == "TXT" ? "TXT" : "MP4");
+                T.FillRound(g, kind == "MP3" ? Color.FromArgb(24, 48, 40) : (kind == "TXT" ? T.GoldTint : T.AccentTint), badge, 10);
+                T.Draw(g, kind, T.SmallB, kind == "MP3" ? T.Success : (kind == "TXT" ? T.Gold : T.Accent), badge,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
 
                 int textW = r.Width - 14 - 56 - 190;

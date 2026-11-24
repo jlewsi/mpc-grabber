@@ -221,6 +221,31 @@ namespace MpcGrabber
                 catch { }
             }
 
+            if (subsOnly)
+            {
+                string txt = TranscriptText.Convert(outPath);
+                if (txt.Length == 0)
+                {
+                    job.State = JobState.Failed;
+                    job.Status = "Failed";
+                    job.Error = "Transcript downloaded but could not be converted to text.";
+                    Raise(true);
+                    return;
+                }
+                TranscriptText.DeleteSidecars(TranscriptText.BaseName(outPath));
+                outPath = txt;
+            }
+            else if (subsWithVideo)
+            {
+                string basePath = TranscriptText.BaseName(outPath);
+                string sub = TranscriptText.FindSubtitle(basePath);
+                if (sub.Length > 0)
+                {
+                    TranscriptText.Convert(sub);
+                    TranscriptText.DeleteSidecars(basePath);
+                }
+            }
+
             job.OutputPath = outPath;
             job.State = JobState.Done;
             job.Status = "Done";
@@ -232,7 +257,7 @@ namespace MpcGrabber
             h.Title = job.Title;
             h.Url = job.Url;
             h.FilePath = outPath;
-            h.Kind = job.TranscriptOnly ? "SRT" : (job.AudioBitrate > 0 ? "MP3" : "MP4");
+            h.Kind = job.TranscriptOnly ? "TXT" : (job.AudioBitrate > 0 ? "MP3" : "MP4");
             h.Quality = job.QualityLabel;
             h.FinishedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
             h.Channel = job.ChannelName;
