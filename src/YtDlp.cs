@@ -185,6 +185,7 @@ namespace MpcGrabber
                 int r = rates[i];
                 list.Add(new FormatOption { Title = "MP3 " + r, Sub = "audio only", AudioBitrate = r });
             }
+            list.Add(new FormatOption { Title = "Transcript", Sub = "English .srt only", TranscriptOnly = true });
         }
 
         public static void Log(string message)

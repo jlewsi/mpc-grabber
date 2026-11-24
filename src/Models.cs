@@ -12,6 +12,7 @@ namespace MpcGrabber
         public string Sub = "";
         public string VideoFmt = "bv*+ba/b";
         public int AudioBitrate = 0;      // 0 = video
+        public bool TranscriptOnly = false;
         public bool IsAudio { get { return AudioBitrate > 0; } }
         public string Badge = null;
     }
@@ -57,6 +58,8 @@ namespace MpcGrabber
         public string ChannelName = "";
         public string ChannelId = "";
         public string OutputTemplate = "";
+        public string SubtitlePath = "";
+        public bool TranscriptOnly = false;
     }
 
     internal class HistoryEntry
@@ -78,6 +81,7 @@ namespace MpcGrabber
         public int AudioBitrate { get; set; }
         public string VideoQuality { get; set; }
         public bool CheckUpdates { get; set; }
+        public bool TranscriptWithVideo { get; set; }
         public int ChannelDays { get; set; }
         public Settings() { AudioBitrate = 320; VideoQuality = "best"; CheckUpdates = true; ChannelDays = 30; }
     }

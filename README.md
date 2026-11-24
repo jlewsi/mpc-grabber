@@ -43,6 +43,9 @@ same folder, so the whole folder is the app. Deleting the folder removes every t
   switches to the Channels tab and loads that channel with the timeframe you last picked.
 - **Real formats per URL** — after *Fetch* it shows the actual resolutions with approximate sizes,
   plus **Best** and **MP3 320 / 192 / 128**.
+- **Transcripts** — a **Transcript** card on the Download screen saves just the English `.srt` instead of
+  a video or MP3; a Settings toggle (*Always save English transcript with video*) also writes `.srt`
+  next to every download, channel downloads included. English only, auto-captions are fine.
 - **Playlists** — checkbox list with All/None; your chosen quality applies to every checked item.
 - **Queue page** — its own section in the sidebar. Starting a playlist download jumps straight to it,
   with every item's state, quality, live percent / speed / ETA, *Cancel current* and *Clear finished*.
@@ -79,6 +82,8 @@ timeframe — **Last 24 hr**, **7 days** or **30 days** — and press **Fetch**.
   the Download page uses.
 - Save a channel by loading it — it stays in **Saved channels** with how many files you have downloaded from it.
   Items already downloaded are dimmed, ticked with a green check and left unchecked.
+- Channel downloads honour the *Always save English transcript* setting — tick it in Settings and each
+  channel video gets a matching `.srt` beside it (there is no transcript-only option on this page).
 - Channel downloads are named **`Channel - Title - MMDDYY-HHMM.ext`** (the time part is dropped when YouTube
   does not expose one) and are recorded in History with the channel name.
 - CLI: `NomadTube.exe --channel "@handle"` opens straight to that channel. Downloads use your default video

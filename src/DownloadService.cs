@@ -39,6 +39,7 @@ namespace MpcGrabber
             job.VideoFmt = fmt.VideoFmt;
             job.AudioBitrate = fmt.AudioBitrate;
             job.QualityLabel = fmt.Title;
+            job.TranscriptOnly = fmt.TranscriptOnly;
             job.ChannelId = channelId ?? "";
             job.ChannelName = channelName ?? "";
             job.OutputTemplate = outputTemplate ?? "";
@@ -87,17 +88,25 @@ namespace MpcGrabber
             string temp = Path.Combine(Path.GetTempPath(), "mpcgrabber_" + Guid.NewGuid().ToString("N") + ".txt");
             StringBuilder args = new StringBuilder();
             args.Append(YtDlp.CommonArgs());
+            bool subsOnly = job.TranscriptOnly;
+            bool subsWithVideo = !subsOnly && Store.Current.TranscriptWithVideo;
             args.Append("--newline --no-playlist --windows-filenames ");
+            string subs = "--write-subs --write-auto-subs --sub-langs " + YtDlp.Quote("en,en-orig") + " --convert-subs srt ";
+            if (subsOnly) args.Append("--skip-download ").Append(subs);
+            else if (subsWithVideo) args.Append(subs);
             string outTemplate = string.IsNullOrEmpty(job.OutputTemplate) ? "%(title)s.%(ext)s" : job.OutputTemplate;
             // Path.Combine rejects template format specs such as %(upload_date>%m%d%y)s, so join manually
             string outFileTemplate = folder.EndsWith("\\") ? folder + outTemplate : folder + "\\" + outTemplate;
             args.Append("-o ").Append(YtDlp.Quote(outFileTemplate)).Append(' ');
-            args.Append("--print-to-file after_move:filepath ").Append(YtDlp.Quote(temp)).Append(' ');
-            if (job.AudioBitrate > 0)
-                args.Append("-x --audio-format mp3 --audio-quality ").Append(job.AudioBitrate).Append("K ");
-            else
-                args.Append("--merge-output-format mp4 ");
-            args.Append("-f ").Append(YtDlp.Quote(job.VideoFmt)).Append(' ');
+            if (!subsOnly) args.Append("--print-to-file after_move:filepath ").Append(YtDlp.Quote(temp)).Append(' ');
+            if (!subsOnly)
+            {
+                if (job.AudioBitrate > 0)
+                    args.Append("-x --audio-format mp3 --audio-quality ").Append(job.AudioBitrate).Append("K ");
+                else
+                    args.Append("--merge-output-format mp4 ");
+                args.Append("-f ").Append(YtDlp.Quote(job.VideoFmt)).Append(' ');
+            }
             args.Append(YtDlp.Quote(job.Url));
             Process p = new Process();
             p.StartInfo = new ProcessStartInfo(YtDlp.ExePath, args.ToString());
@@ -168,6 +177,8 @@ namespace MpcGrabber
             }
             catch { }
 
+            if (subsOnly && outPath.Length == 0) outPath = job.SubtitlePath;
+
             if (_cancel)
             {
                 job.State = JobState.Cancelled;
@@ -190,7 +201,7 @@ namespace MpcGrabber
                 {
                     if (el[i].Trim().Length > 0) last.AppendLine(el[i].Trim());
                 }
-                job.Error = last.ToString().Trim();
+                job.Error = subsOnly ? "No English transcript available for this video." : last.ToString().Trim();
                 Raise(true);
                 return;
             }
@@ -221,7 +232,7 @@ namespace MpcGrabber
             h.Title = job.Title;
             h.Url = job.Url;
             h.FilePath = outPath;
-            h.Kind = job.AudioBitrate > 0 ? "MP3" : "MP4";
+            h.Kind = job.TranscriptOnly ? "SRT" : (job.AudioBitrate > 0 ? "MP3" : "MP4");
             h.Quality = job.QualityLabel;
             h.FinishedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
             h.Channel = job.ChannelName;
@@ -237,6 +248,20 @@ namespace MpcGrabber
 
         private void ParseLine(DownloadJob job, string line)
         {
+            const string subMark = "Writing video subtitles to:";
+            int subAt = line.IndexOf(subMark, StringComparison.OrdinalIgnoreCase);
+            if (subAt >= 0)
+            {
+                string subPath = line.Substring(subAt + subMark.Length).Trim().Trim('\"');
+                if (subPath.EndsWith(".vtt", StringComparison.OrdinalIgnoreCase) ||
+                    subPath.EndsWith(".ttml", StringComparison.OrdinalIgnoreCase) ||
+                    subPath.EndsWith(".srv1", StringComparison.OrdinalIgnoreCase) ||
+                    subPath.EndsWith(".srv2", StringComparison.OrdinalIgnoreCase) ||
+                    subPath.EndsWith(".srv3", StringComparison.OrdinalIgnoreCase))
+                    subPath = Path.ChangeExtension(subPath, ".srt");
+                if (subPath.Length > 0) job.SubtitlePath = subPath;
+            }
+
             Match m = ProgressRx.Match(line);
             if (m.Success)
             {

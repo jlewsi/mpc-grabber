@@ -179,6 +179,7 @@ namespace MpcGrabber
         private DownloadButton _btnChanDownload;
         private LoadingOverlay _loading;
         private ToggleBox _chkUpdates;
+        private ToggleBox _chkTranscript;
         private FlatButton _btnCheckNow;
         private Label _lblUpdateStatus;
         private Label _lblVersion;
@@ -215,6 +216,7 @@ namespace MpcGrabber
                 _autoDownload = true;
 
             Text = "NomadTube";
+            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             AutoScaleMode = AutoScaleMode.None;
             BackColor = T.Bg;
             ForeColor = T.Text;
@@ -1115,7 +1117,7 @@ namespace MpcGrabber
             RoundedPanel cardDefaults = new RoundedPanel();
             cardDefaults.Fill = T.Card;
             cardDefaults.Radius = 12;
-            cardDefaults.Bounds = new Rectangle(0, 182, 760, 150);
+            cardDefaults.Bounds = new Rectangle(0, 182, 760, 196);
             _pageSettings.Controls.Add(cardDefaults);
 
             Label lblVideo = MkLabel("Default video quality", T.H3, T.Text, T.Card);
@@ -1171,6 +1173,17 @@ namespace MpcGrabber
                     UpdateSettingPills();
                 };
                 cardDefaults.Controls.Add(b);
+
+            _chkTranscript = new ToggleBox();
+            _chkTranscript.Text = "Always save English transcript (.srt) with video (channels too)";
+            _chkTranscript.Bounds = new Rectangle(18, 138, 590, 22);
+            _chkTranscript.Checked = Store.Current.TranscriptWithVideo;
+            _chkTranscript.CheckedChanged += delegate { Store.Current.TranscriptWithVideo = _chkTranscript.Checked; Store.SaveSettings(); };
+            cardDefaults.Controls.Add(_chkTranscript);
+
+            Label lblTrHint = MkLabel("auto-generated captions are fine \u2014 converted to .srt next to the video", T.Tiny, T.Faint, T.Card);
+            lblTrHint.Bounds = new Rectangle(18, 164, 620, 16);
+            cardDefaults.Controls.Add(lblTrHint);
                 _audioBtns[i] = b;
             }
 
@@ -1178,7 +1191,7 @@ namespace MpcGrabber
             RoundedPanel card2 = new RoundedPanel();
             card2.Fill = T.Card;
             card2.Radius = 12;
-            card2.Bounds = new Rectangle(0, 344, 760, 108);
+            card2.Bounds = new Rectangle(0, 390, 760, 108);
             _pageSettings.Controls.Add(card2);
 
             Label lbl3 = MkLabel("Cookies", T.H3, T.Text, T.Card);
@@ -1193,7 +1206,7 @@ namespace MpcGrabber
             RoundedPanel card3 = new RoundedPanel();
             card3.Fill = T.Card;
             card3.Radius = 12;
-            card3.Bounds = new Rectangle(0, 464, 760, 80);
+            card3.Bounds = new Rectangle(0, 502, 760, 80);
             _pageSettings.Controls.Add(card3);
 
             Label lbl4 = MkLabel("History", T.H3, T.Text, T.Card);
@@ -1213,7 +1226,7 @@ namespace MpcGrabber
             RoundedPanel card4 = new RoundedPanel();
             card4.Fill = T.Card;
             card4.Radius = 12;
-            card4.Bounds = new Rectangle(0, 556, 760, 96);
+            card4.Bounds = new Rectangle(0, 594, 760, 96);
             _pageSettings.Controls.Add(card4);
 
             Label lblUpd = MkLabel("Updates", T.H3, T.Text, T.Card);
@@ -1239,7 +1252,7 @@ namespace MpcGrabber
 
             Label about = MkLabel("", T.Small, T.Faint, T.Bg);
             about.Name = "about";
-            about.Bounds = new Rectangle(4, 668, 760, 50);
+            about.Bounds = new Rectangle(4, 706, 760, 50);
             _pageSettings.Controls.Add(about);
 
             _pageSettings.Resize += delegate
@@ -1286,6 +1299,7 @@ namespace MpcGrabber
             }
             UpdateSettingPills();
             if (_chkUpdates != null) _chkUpdates.Checked = Store.Current.CheckUpdates;
+            if (_chkTranscript != null) _chkTranscript.Checked = Store.Current.TranscriptWithVideo;
             if (_lblUpdateStatus != null && _lblUpdateStatus.Text.Length == 0) _lblUpdateStatus.Text = "current build v" + Updater.CurrentShort;
             Control[] found = _pageSettings.Controls.Find("about", true);
             if (found.Length > 0)
